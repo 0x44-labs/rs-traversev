@@ -1,1 +1,2 @@
+mod compress;
 mod init;
