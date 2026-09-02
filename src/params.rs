@@ -68,6 +68,22 @@ impl Params {
             n_cost,
         })
     }
+
+    pub const fn m_cost(&self) -> u32 {
+        self.m_cost
+    }
+
+    pub const fn t_cost(&self) -> u32 {
+        self.t_cost
+    }
+
+    pub const fn d_cost(&self) -> u32 {
+        self.d_cost
+    }
+
+    pub const fn n_cost(&self) -> u32 {
+        self.n_cost
+    }
 }
 
 impl Default for Params {
