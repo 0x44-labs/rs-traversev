@@ -2,18 +2,18 @@ use crate::traverse::blockmix::block_mix;
 
 const BLOCK_SIZE: usize = 1024;
 
-/// The scryptROMix algorithm's second loop. The loop runs for `c_cost` rounds
+/// The scryptROMix algorithm's second loop. The loop runs for `d_cost` rounds
 /// and is independent of q, compared to RFC 7914 sizing both the array and
 /// iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub(crate) fn chain(
+pub(crate) fn dependency_chain(
     mut x: [u8; BLOCK_SIZE],
     v: &[u8],
     q: usize,
-    c_cost: u32,
+    d_cost: u32,
 ) -> [u8; BLOCK_SIZE] {
-    for _ in 0..c_cost {
+    for _ in 0..d_cost {
         let j = (integerify(&x) % q as u64) as usize;
 
         let mut t = [0u8; BLOCK_SIZE];
