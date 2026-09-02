@@ -12,7 +12,7 @@ const BLOCK_SIZE: usize = 1024;
 /// blocks to fill, so this is a single loop over the whole array.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-pub(crate) fn fill(v: &mut [u8], q: usize, t_cost: u32) {
+pub(crate) fn fill(v: &mut [u8], q: usize, t: usize) {
     let mut words = vec![0u64; q * WORDS];
     for i in 0..q {
         let block_bytes: [u8; BLOCK_SIZE] = v
@@ -23,7 +23,7 @@ pub(crate) fn fill(v: &mut [u8], q: usize, t_cost: u32) {
             .copy_from_slice(&bytes_to_words(&block_bytes));
     }
 
-    for pass in 0..t_cost {
+    for pass in 0..t {
         let start = if pass == 0 { 2 } else { 0 };
         for j in start..q {
             fill_block(&mut words, q, pass, j);
@@ -46,7 +46,7 @@ pub(crate) fn fill(v: &mut [u8], q: usize, t_cost: u32) {
 /// existing value; this function always overwrites.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-fn fill_block(v: &mut [u64], q: usize, pass: u32, j: usize) {
+fn fill_block(v: &mut [u64], q: usize, pass: usize, j: usize) {
     let prev = prev_index(pass, j, q);
     let prev_words: [u64; WORDS] = v[prev * WORDS..(prev + 1) * WORDS]
         .try_into()
@@ -68,7 +68,7 @@ fn fill_block(v: &mut [u64], q: usize, pass: u32, j: usize) {
 /// and Further Passes.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-fn prev_index(pass: u32, j: usize, q: usize) -> usize {
+fn prev_index(pass: usize, j: usize, q: usize) -> usize {
     if pass > 0 && j == 0 { q - 1 } else { j - 1 }
 }
 
@@ -80,7 +80,7 @@ fn prev_index(pass: u32, j: usize, q: usize) -> usize {
 /// nothing to protect against, so the whole array is used instead.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
-fn w_len(pass: u32, j: usize, q: usize) -> usize {
+fn w_len(pass: usize, j: usize, q: usize) -> usize {
     if pass == 0 { j - 1 } else { q - 1 }
 }
 
@@ -92,7 +92,7 @@ fn w_len(pass: u32, j: usize, q: usize) -> usize {
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
 fn reference_index(
-    pass: u32,
+    pass: usize,
     prev: usize,
     len: usize,
     prev_words: &[u64; WORDS],
@@ -125,7 +125,7 @@ fn select(w_len: usize, j1: u32) -> usize {
 /// as an abstract set.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
-fn w_index(pass: u32, prev: usize, pos: usize) -> usize {
+fn w_index(pass: usize, prev: usize, pos: usize) -> usize {
     if pass == 0 {
         pos
     } else if pos < prev {
