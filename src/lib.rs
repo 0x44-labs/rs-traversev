@@ -63,6 +63,13 @@ impl TraverseV {
         }
     }
 
+    pub fn verify(&self, key: &[u8], nonce: u128) -> bool {
+        let candidate = self.authenticate(key, nonce);
+        let satisfied = self.check_n(&candidate);
+
+        bool::from(satisfied)
+    }
+
     fn authenticate(&self, key: &[u8], nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
         hasher.update(&key);
