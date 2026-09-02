@@ -1,6 +1,5 @@
+use crate::constants::BLOCK_SIZE;
 use crate::traverse::blockmix::block_mix;
-
-const BLOCK_SIZE: usize = 1024;
 
 /// The scryptROMix algorithm's second loop. The loop runs for `k` rounds
 /// and is independent of q, compared to RFC 7914 sizing both the array and

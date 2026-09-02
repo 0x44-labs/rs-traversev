@@ -1,8 +1,5 @@
-use crate::memory::compress::{
-    WORDS, bytes_to_words, compress, words_to_bytes,
-};
-
-const BLOCK_SIZE: usize = 1024;
+use crate::constants::{BLOCK_SIZE, WORDS};
+use crate::memory::compress::{bytes_to_words, compress, words_to_bytes};
 
 /// Fill every block of V after the initial two blocks (RFC 9106  Further Block
 /// Generation and Further Passes), specialised for a single lane.

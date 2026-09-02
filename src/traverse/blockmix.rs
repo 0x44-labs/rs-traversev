@@ -1,7 +1,7 @@
 use salsa20::SalsaCore;
 use salsa20::cipher::{StreamCipherCore, consts::U4};
 
-const BLOCK_SIZE: usize = 1024;
+use crate::constants::BLOCK_SIZE;
 
 /// The scryptBlockMix Algorithm, specialised for `r = 8`, `128 * r = 1024`.
 /// This operates directly on one [BLOCK_SIZE]-sized block with no resizing,

@@ -1,6 +1,6 @@
 use blake3::Hasher;
 
-const BLOCK_SIZE: usize = 1024;
+use crate::constants::BLOCK_SIZE;
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
 /// Blocks and Second Lane Blocks, but specialised for TraverseV lacking a

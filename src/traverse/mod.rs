@@ -3,7 +3,7 @@ mod chain;
 
 use blake3::Hasher;
 
-const BLOCK_SIZE: usize = 1024;
+use crate::constants::BLOCK_SIZE;
 
 pub(crate) fn authenticate(
     key: &[u8; 32],

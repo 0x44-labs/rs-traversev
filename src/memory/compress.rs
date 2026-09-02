@@ -32,9 +32,7 @@
 //! DEALINGS IN THE SOFTWARE.
 use core::num::Wrapping;
 
-const BLOCK_SIZE: usize = 1024;
-
-pub const WORDS: usize = BLOCK_SIZE / 8;
+use crate::constants::{BLOCK_SIZE, WORDS};
 
 const TRUNC: u64 = u32::MAX as u64;
 
