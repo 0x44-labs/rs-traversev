@@ -15,8 +15,10 @@ pub(crate) fn initial_blocks(
     key: &[u8],
     m_cost: u32,
     t_cost: u32,
+    d_cost: u32,
+    n_cost: u32,
 ) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    let preimage = h_0(key, m_cost, t_cost);
+    let preimage = h_0(key, m_cost, t_cost, d_cost, n_cost);
 
     let b0 = init(&preimage, 0);
     let b1 = init(&preimage, 1);
@@ -32,10 +34,18 @@ pub(crate) fn initial_blocks(
 /// parameters and with BLAKE3 instead of BLAKE2b.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-fn h_0(key: &[u8], m_cost: u32, t_cost: u32) -> [u8; 64] {
+fn h_0(
+    key: &[u8],
+    m_cost: u32,
+    t_cost: u32,
+    d_cost: u32,
+    n_cost: u32,
+) -> [u8; 64] {
     let mut hasher = Hasher::new();
     hasher.update(&m_cost.to_le_bytes());
     hasher.update(&t_cost.to_le_bytes());
+    hasher.update(&d_cost.to_le_bytes());
+    hasher.update(&n_cost.to_le_bytes());
     hasher.update(key);
 
     let mut out = [0u8; 64];
