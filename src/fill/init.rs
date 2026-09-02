@@ -46,8 +46,8 @@ fn h_0(key: &[u8], m_cost: u32, t_cost: u32) -> [u8; 64] {
 /// output length is folded into its internal state. A truncated Blake2b-512
 /// is not interchangeable with a shorter Blake2b digest computed directly.
 ///
-/// For `T = 1024` this specialisation produces output identical to the RFC
-/// 9106's Function H'.
+/// For `T = 1024` this specialisation produces output identical to the RFC's
+/// Function H'.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.3
 fn h_prime(input: &[u8]) -> [u8; BLOCK_SIZE] {

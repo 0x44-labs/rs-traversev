@@ -34,7 +34,7 @@ use core::num::Wrapping;
 
 const BLOCK_SIZE: usize = 1024;
 
-const WORDS: usize = BLOCK_SIZE / 8;
+pub const WORDS: usize = BLOCK_SIZE / 8;
 
 const TRUNC: u64 = u32::MAX as u64;
 
@@ -114,4 +114,25 @@ pub fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
         q[i] ^= r[i];
     }
     q
+}
+
+pub fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
+    let mut words = [0u64; WORDS];
+    for i in 0..WORDS {
+        words[i] =
+            u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().expect(
+                "slicing at a fixed aligned offset always yields 8 bytes",
+            ));
+    }
+
+    words
+}
+
+pub fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
+    let mut bytes = [0u8; BLOCK_SIZE];
+    for i in 0..WORDS {
+        bytes[i * 8..i * 8 + 8].copy_from_slice(&words[i].to_le_bytes());
+    }
+
+    bytes
 }
