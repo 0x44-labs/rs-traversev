@@ -6,7 +6,7 @@ use crate::traverse::blockmix::block_mix;
 /// iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub(crate) fn dependency_chain(
+pub fn dependency_chain(
     mut x: [u8; BLOCK_SIZE],
     v: &[u8],
     q: usize,

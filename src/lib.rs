@@ -4,21 +4,29 @@ mod memory;
 mod params;
 mod traverse;
 
+use blake3::Hasher;
+
 use crate::constants::BLOCK_SIZE;
 use crate::memory::{fill, initial_blocks};
 use crate::params::Params;
+use crate::traverse::dependency_chain;
 
 pub struct TraverseV {
     inner: Vec<u8>,
+    context: String,
     params: Params,
 }
 
 impl TraverseV {
-    pub fn new(params: Params) -> Self {
+    pub fn new(context: &str, params: Params) -> Self {
         let q = params.m_cost() as usize;
         let v = vec![0u8; q * BLOCK_SIZE];
 
-        Self { inner: v, params }
+        Self {
+            inner: v,
+            context: context.to_string(),
+            params,
+        }
     }
 
     pub fn fill(&mut self, key: &[u8]) {
@@ -36,5 +44,23 @@ impl TraverseV {
         self.inner[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
 
         fill(&mut self.inner, q, t);
+    }
+
+    fn authenticate(&self, key: &[u8], nonce: u128) -> [u8; 32] {
+        let mut hasher = Hasher::new_derive_key(&self.context);
+        hasher.update(&key);
+        let dk: [u8; 32] = hasher.finalize().into();
+
+        let mut hasher = Hasher::new_keyed(&dk);
+        hasher.update(&nonce.to_le_bytes());
+
+        let mut x = [0u8; BLOCK_SIZE];
+        let mut reader = hasher.finalize_xof();
+        reader.fill(&mut x);
+
+        let q = self.params.m_cost() as usize;
+        let k = self.params.d_cost() as usize;
+        x = dependency_chain(x, &self.inner, q, k);
+        blake3::hash(&x).into()
     }
 }
