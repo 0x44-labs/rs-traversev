@@ -14,44 +14,41 @@ use crate::traverse::dependency_chain;
 
 pub struct TraverseV {
     inner: Vec<u8>,
+    key: Vec<u8>,
     context: String,
     params: Params,
 }
 
 impl TraverseV {
-    pub fn new(context: &str, params: Params) -> Self {
+    pub fn new(key: &[u8], context: &str, params: Params) -> Self {
         let q = params.m_cost() as usize;
-        let v = vec![0u8; q * BLOCK_SIZE];
+        let t = params.t_cost() as usize;
+
+        let mut v = vec![0u8; q * BLOCK_SIZE];
+        let (b0, b1) = initial_blocks(
+            key,
+            params.m_cost(),
+            params.t_cost(),
+            params.d_cost(),
+            params.n_cost(),
+        );
+        v[0..BLOCK_SIZE].copy_from_slice(&b0);
+        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
+        fill(&mut v, q, t);
 
         Self {
             inner: v,
+            key: key.to_vec(),
             context: context.to_string(),
             params,
         }
     }
 
-    pub fn fill(&mut self, key: &[u8]) {
-        let q = self.params.m_cost() as usize;
-        let t = self.params.t_cost() as usize;
-
-        let (b0, b1) = initial_blocks(
-            key,
-            self.params.m_cost(),
-            self.params.t_cost(),
-            self.params.d_cost(),
-            self.params.n_cost(),
-        );
-        self.inner[0..BLOCK_SIZE].copy_from_slice(&b0);
-        self.inner[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-
-        fill(&mut self.inner, q, t);
-    }
-
-    pub fn mine(&self, key: &[u8]) -> u128 {
+    pub fn mine(&self) -> u128 {
         let mut nonce = 0u128;
 
         loop {
-            let candidate = self.authenticate(key, nonce);
+            let candidate = self.authenticate(nonce);
             let satisfied = self.check_n(&candidate);
 
             // Break loop when the constraint is satisfied
@@ -63,16 +60,16 @@ impl TraverseV {
         }
     }
 
-    pub fn verify(&self, key: &[u8], nonce: u128) -> bool {
-        let candidate = self.authenticate(key, nonce);
+    pub fn verify(&self, nonce: u128) -> bool {
+        let candidate = self.authenticate(nonce);
         let satisfied = self.check_n(&candidate);
 
         bool::from(satisfied)
     }
 
-    fn authenticate(&self, key: &[u8], nonce: u128) -> [u8; 32] {
+    fn authenticate(&self, nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
-        hasher.update(&key);
+        hasher.update(&self.key);
         let dk: [u8; 32] = hasher.finalize().into();
 
         let mut hasher = Hasher::new_keyed(&dk);
