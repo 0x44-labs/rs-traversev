@@ -1,4 +1,6 @@
-use crate::fill::compress::{WORDS, bytes_to_words, compress, words_to_bytes};
+use crate::memory::compress::{
+    WORDS, bytes_to_words, compress, words_to_bytes,
+};
 
 const BLOCK_SIZE: usize = 1024;
 
