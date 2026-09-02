@@ -10,7 +10,7 @@ const BLOCK_SIZE: usize = 1024;
 /// blocks to fill, so this is a single loop over the whole array.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-pub fn fill(v: &mut [u8], q: usize, t_cost: u32) {
+pub(crate) fn fill(v: &mut [u8], q: usize, t_cost: u32) {
     let mut words = vec![0u64; q * WORDS];
     for i in 0..q {
         let block_bytes: [u8; BLOCK_SIZE] = v

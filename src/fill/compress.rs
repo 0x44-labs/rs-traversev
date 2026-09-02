@@ -75,7 +75,7 @@ macro_rules! permute {
 /// transformation P.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.5
-pub fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
+pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
     let mut r = [0u64; WORDS];
     for i in 0..WORDS {
         r[i] = rhs[i] ^ lhs[i];
@@ -116,7 +116,7 @@ pub fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
     q
 }
 
-pub fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
+pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
     let mut words = [0u64; WORDS];
     for i in 0..WORDS {
         words[i] =
@@ -128,7 +128,7 @@ pub fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
     words
 }
 
-pub fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
+pub(crate) fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
     let mut bytes = [0u8; BLOCK_SIZE];
     for i in 0..WORDS {
         bytes[i * 8..i * 8 + 8].copy_from_slice(&words[i].to_le_bytes());
