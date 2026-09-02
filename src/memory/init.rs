@@ -11,7 +11,7 @@ use crate::constants::BLOCK_SIZE;
 /// `B[1] = init(H_0 || LE32(1))`
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-pub(crate) fn initial_blocks(
+pub fn initial_blocks(
     key: &[u8],
     m_cost: u32,
     t_cost: u32,
