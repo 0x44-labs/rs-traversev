@@ -5,6 +5,7 @@ mod params;
 mod traverse;
 
 use blake3::Hasher;
+use subtle::{Choice, ConstantTimeEq};
 
 use crate::constants::BLOCK_SIZE;
 use crate::memory::{fill, initial_blocks};
@@ -46,6 +47,22 @@ impl TraverseV {
         fill(&mut self.inner, q, t);
     }
 
+    pub fn mine(&self, key: &[u8]) -> u128 {
+        let mut nonce = 0u128;
+
+        loop {
+            let candidate = self.authenticate(key, nonce);
+            let satisfied = self.check_n(&candidate);
+
+            // Break loop when the constraint is satisfied
+            if bool::from(satisfied) {
+                return nonce;
+            }
+
+            nonce += 1
+        }
+    }
+
     fn authenticate(&self, key: &[u8], nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
         hasher.update(&key);
@@ -62,5 +79,23 @@ impl TraverseV {
         let k = self.params.d_cost() as usize;
         x = dependency_chain(x, &self.inner, q, k);
         blake3::hash(&x).into()
+    }
+
+    fn check_n(&self, candidate: &[u8; 32]) -> Choice {
+        let n = self.params.n_cost() as u8;
+        let bytes = n / 8;
+        let bits = n % 8;
+
+        // Verify first N bytes are zero, following N bits are zero
+        let mut satisfied = Choice::from(1u8);
+        for i in 0..bytes {
+            satisfied &= candidate[i as usize].ct_eq(&0u8);
+        }
+        if bits > 0 {
+            let mask = (0xFF << (8 - bits)) as u8;
+            satisfied &= (candidate[bytes as usize] & mask).ct_eq(&0u8);
+        }
+
+        satisfied
     }
 }
