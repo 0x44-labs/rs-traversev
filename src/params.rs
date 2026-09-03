@@ -14,19 +14,19 @@ impl Params {
 
     pub const MAX_M: u32 = u32::MAX;
 
-    pub const DEFAULT_T: u32 = 2;
+    pub const DEFAULT_T: u32 = 3;
 
     pub const MIN_T: u32 = 1;
 
     pub const MAX_T: u32 = u32::MAX;
 
-    pub const DEFAULT_D: u32 = 4;
+    pub const DEFAULT_D: u32 = 8;
 
     pub const MIN_D: u32 = 1;
 
     pub const MAX_D: u32 = u32::MAX;
 
-    pub const DEFAULT_N: u32 = 16;
+    pub const DEFAULT_N: u32 = 20;
 
     pub const MIN_N: u32 = 1;
 
