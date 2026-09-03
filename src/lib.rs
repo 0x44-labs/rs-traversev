@@ -9,7 +9,7 @@ use subtle::{Choice, ConstantTimeEq};
 
 use crate::constants::BLOCK_SIZE;
 use crate::memory::{fill, initial_blocks};
-use crate::params::Params;
+pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
 pub struct TraverseV {
