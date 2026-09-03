@@ -12,13 +12,13 @@ use crate::constants::BLOCK_SIZE;
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 pub fn initial_blocks(
-    key: &[u8],
+    secret: &[u8],
     m_cost: u32,
     t_cost: u32,
     d_cost: u32,
     n_cost: u32,
 ) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    let preimage = h_0(key, m_cost, t_cost, d_cost, n_cost);
+    let preimage = h_0(secret, m_cost, t_cost, d_cost, n_cost);
 
     let b0 = init(&preimage, 0);
     let b1 = init(&preimage, 1);
@@ -26,8 +26,8 @@ pub fn initial_blocks(
     (b0, b1)
 }
 
-/// Hash preimage of the parameters and key. Delivers a consistent 64 byte
-/// preimage despite unbounded key length to avoid re-hashing potentially
+/// Hash preimage of the parameters and secret. Delivers a consistent 64 byte
+/// preimage despite unbounded secret length to avoid re-hashing potentially
 /// large input once per output block with [init].
 ///
 /// Similar to RFC 9106's H_0 Generation but specialised for TraverseV's
@@ -35,7 +35,7 @@ pub fn initial_blocks(
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 fn h_0(
-    key: &[u8],
+    secret: &[u8],
     m_cost: u32,
     t_cost: u32,
     d_cost: u32,
@@ -46,7 +46,7 @@ fn h_0(
     hasher.update(&t_cost.to_le_bytes());
     hasher.update(&d_cost.to_le_bytes());
     hasher.update(&n_cost.to_le_bytes());
-    hasher.update(key);
+    hasher.update(secret);
 
     let mut out = [0u8; 64];
     let mut reader = hasher.finalize_xof();

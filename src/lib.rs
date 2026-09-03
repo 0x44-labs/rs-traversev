@@ -14,19 +14,19 @@ use crate::traverse::dependency_chain;
 
 pub struct TraverseV {
     inner: Vec<u8>,
-    key: Vec<u8>,
+    secret: Vec<u8>,
     context: String,
     params: Params,
 }
 
 impl TraverseV {
-    pub fn new(key: &[u8], context: &str, params: Params) -> Self {
+    pub fn new(secret: &[u8], context: &str, params: Params) -> Self {
         let q = params.m_cost() as usize;
         let t = params.t_cost() as usize;
 
         let mut v = vec![0u8; q * BLOCK_SIZE];
         let (b0, b1) = initial_blocks(
-            key,
+            secret,
             params.m_cost(),
             params.t_cost(),
             params.d_cost(),
@@ -38,7 +38,7 @@ impl TraverseV {
 
         Self {
             inner: v,
-            key: key.to_vec(),
+            secret: secret.to_vec(),
             context: context.to_string(),
             params,
         }
@@ -69,10 +69,10 @@ impl TraverseV {
 
     fn authenticate(&self, nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
-        hasher.update(&self.key);
-        let dk: [u8; 32] = hasher.finalize().into();
+        hasher.update(&self.secret);
+        let key: [u8; 32] = hasher.finalize().into();
 
-        let mut hasher = Hasher::new_keyed(&dk);
+        let mut hasher = Hasher::new_keyed(&key);
         hasher.update(&nonce.to_le_bytes());
 
         let mut x = [0u8; BLOCK_SIZE];
