@@ -2,9 +2,9 @@
 pub enum TraverseVErr {
     MemoryTooSmall,
     TimeTooSmall,
-    DependencyTooSmall,
-    DifficultyTooSmall,
-    DifficultyTooBig,
+    MixingTooLow,
+    DifficultyTooLow,
+    DifficultyTooHigh,
 }
 
 impl core::fmt::Display for TraverseVErr {
@@ -12,9 +12,9 @@ impl core::fmt::Display for TraverseVErr {
         let msg = match self {
             Self::MemoryTooSmall => "memory cost is too small",
             Self::TimeTooSmall => "time cost is too small",
-            Self::DependencyTooSmall => "dependency cost is too small",
-            Self::DifficultyTooSmall => "difficulty cost is too small",
-            Self::DifficultyTooBig => "difficulty cost is too big",
+            Self::MixingTooLow => "mixing rounds is too low",
+            Self::DifficultyTooLow => "difficulty is too low",
+            Self::DifficultyTooHigh => "difficulty is too high",
         };
         f.write_str(msg)
     }

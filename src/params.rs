@@ -1,5 +1,6 @@
 use crate::errors::TraverseVErr;
 
+/// TraverseV parameters.
 pub struct Params {
     m_cost: u32,
     t_cost: u32,
@@ -8,30 +9,38 @@ pub struct Params {
 }
 
 impl Params {
+    /// Default memory cost `m`.
     pub const DEFAULT_M: u32 = 19 * 1024;
 
-    pub const MIN_M: u32 = 2;
+    const MIN_M: u32 = 2;
 
-    pub const MAX_M: u32 = u32::MAX;
+    #[allow(dead_code)]
+    const MAX_M: u32 = u32::MAX;
 
+    /// Default time cost (number of memory fill iterations) `t`.
     pub const DEFAULT_T: u32 = 3;
 
-    pub const MIN_T: u32 = 1;
+    const MIN_T: u32 = 1;
 
-    pub const MAX_T: u32 = u32::MAX;
+    #[allow(dead_code)]
+    const MAX_T: u32 = u32::MAX;
 
+    /// Default number of mixing rounds `d`.
     pub const DEFAULT_D: u32 = 8;
 
-    pub const MIN_D: u32 = 1;
+    const MIN_D: u32 = 1;
 
-    pub const MAX_D: u32 = u32::MAX;
+    #[allow(dead_code)]
+    const MAX_D: u32 = u32::MAX;
 
+    /// Default proof-of-work difficulty `n`.
     pub const DEFAULT_N: u32 = 20;
 
-    pub const MIN_N: u32 = 1;
+    const MIN_N: u32 = 1;
 
-    pub const MAX_N: u32 = u8::MAX as u32;
+    const MAX_N: u32 = u8::MAX as u32;
 
+    /// Default parameters.
     pub const DEFAULT: Self = Params {
         m_cost: Self::DEFAULT_M,
         t_cost: Self::DEFAULT_T,
@@ -39,6 +48,18 @@ impl Params {
         n_cost: Self::DEFAULT_N,
     };
 
+    /// Create new parameters for TraverseV.
+    ///
+    /// Returns the constructed `Params` on success, or an error when any value
+    /// falls outside its accepted range.
+    ///
+    /// # Arguments
+    /// - `m_cost`: memory cost in 1 KiB blocks. Between 2 and (2^32) - 1.
+    /// - `t_cost`: number of memory fill iterations. Between 1 and (2^32) - 1.
+    /// - `d_cost`: number of sequential dependency mixing rounds. Between 1
+    ///   and (2^32) - 1.
+    /// - `n_cost`: proof-of-work difficulty as a number of leading zero bits.
+    ///   Between 2 and (2^8) - 1.
     pub fn new(
         m_cost: u32,
         t_cost: u32,
@@ -52,13 +73,13 @@ impl Params {
             return Err(TraverseVErr::TimeTooSmall);
         }
         if d_cost < Self::MIN_D {
-            return Err(TraverseVErr::DependencyTooSmall);
+            return Err(TraverseVErr::MixingTooLow);
         }
         if n_cost < Self::MIN_N {
-            return Err(TraverseVErr::DifficultyTooSmall);
+            return Err(TraverseVErr::DifficultyTooLow);
         }
         if n_cost > Self::MAX_N {
-            return Err(TraverseVErr::DifficultyTooBig);
+            return Err(TraverseVErr::DifficultyTooHigh);
         }
 
         Ok(Self {
@@ -69,18 +90,22 @@ impl Params {
         })
     }
 
+    /// Memory size in KiB.
     pub const fn m_cost(&self) -> u32 {
         self.m_cost
     }
 
+    /// Number of memory fill iterations.
     pub const fn t_cost(&self) -> u32 {
         self.t_cost
     }
 
+    /// Number of sequential dependency mixing rounds
     pub const fn d_cost(&self) -> u32 {
         self.d_cost
     }
 
+    /// Proof-of-work difficulty.
     pub const fn n_cost(&self) -> u32 {
         self.n_cost
     }
