@@ -114,6 +114,7 @@ pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
     q
 }
 
+/// Convert one block from bytes to words.
 pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
     let mut words = [0u64; WORDS];
     for i in 0..WORDS {
@@ -126,6 +127,7 @@ pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
     words
 }
 
+/// Convert one block of words to bytes.
 pub(crate) fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
     let mut bytes = [0u8; BLOCK_SIZE];
     for i in 0..WORDS {

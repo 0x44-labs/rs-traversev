@@ -12,6 +12,17 @@ use crate::memory::{fill, initial_blocks};
 pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
+/// TraverseV proof-of-work instance.
+///
+/// Construction fills a memory buffer using a fill adapted from Argon2d. Each
+/// block is derived from its predecessor and a pseudorandomly selected earlier
+/// block via Argon2's BLAKE2b-based compression function, repeated over
+/// multiple passes.
+///
+/// Mining iteratively searches for a nonce that satisfies this instance's
+/// difficulty. Each candidate nonce is authenticated by applying rounds of
+/// the scryptROMix algorithm's second loop, mixing memory blocks into the
+/// computation via Salsa20/8-based BlockMix.
 pub struct TraverseV {
     inner: Vec<u8>,
     secret: Vec<u8>,
@@ -20,6 +31,10 @@ pub struct TraverseV {
 }
 
 impl TraverseV {
+    /// Build a new `TraverseV` instance.
+    ///
+    /// Creates and fills a memory buffer, and stores this instance's
+    /// secret, application context, and parameters.
     pub fn new(secret: &[u8], context: &str, params: Params) -> Self {
         let q = params.m_cost() as usize;
         let t = params.t_cost() as usize;
@@ -44,6 +59,10 @@ impl TraverseV {
         }
     }
 
+    /// Mine for a nonce value satisfying this instance's difficulty.
+    ///
+    /// Iteratively searches for candidates starting from `0u128` until one
+    /// satisfies the difficulty. Runtime is unbounded on high difficulties.
     pub fn mine(&self) -> u128 {
         let mut nonce = 0u128;
 
@@ -60,6 +79,7 @@ impl TraverseV {
         }
     }
 
+    /// Check if a nonce value satisfies this instance's difficulty.
     pub fn verify(&self, nonce: u128) -> bool {
         let candidate = self.authenticate(nonce);
         let satisfied = self.check_n(&candidate);
