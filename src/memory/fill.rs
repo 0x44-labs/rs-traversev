@@ -50,7 +50,7 @@ fn fill_block(v: &mut [u64], q: usize, pass: usize, j: usize) {
         .expect("v is laid out in fixed WORDS-sized blocks");
 
     let len = w_len(pass, j, q);
-    let z = reference_index(pass, prev, len, &prev_words);
+    let z = reference_index(prev, len, &prev_words);
     let ref_words: [u64; WORDS] = v[z * WORDS..(z + 1) * WORDS]
         .try_into()
         .expect("v is laid out in fixed WORDS-sized blocks");
@@ -89,13 +89,12 @@ fn w_len(pass: usize, j: usize, q: usize) -> usize {
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
 fn reference_index(
-    pass: usize,
     prev: usize,
     len: usize,
     prev_words: &[u64; WORDS],
 ) -> usize {
     let pos = select(len, j1(prev_words));
-    w_index(pass, prev, pos)
+    w_index(prev, pos)
 }
 
 /// J1 (RFC 9106 Deriving J1, J2 in Argon2d). J2 is not computed as the RFC
@@ -122,12 +121,6 @@ fn select(w_len: usize, j1: u32) -> usize {
 /// as an abstract set.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
-fn w_index(pass: usize, prev: usize, pos: usize) -> usize {
-    if pass == 0 {
-        pos
-    } else if pos < prev {
-        pos
-    } else {
-        pos + 1
-    }
+fn w_index(prev: usize, pos: usize) -> usize {
+    if pos < prev { pos } else { pos + 1 }
 }
