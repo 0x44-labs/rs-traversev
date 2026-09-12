@@ -1,6 +1,17 @@
 [package]
 name = "traversev"
 version = "0.1.0-alpha.1"
+description = """
+An authenticated memory-hard proof-of-work scheme.
+"""
+authors = ["Determination Labs Team"]
+license = "MIT"
+documentation = "https://docs.rs/traversev"
+homepage = "https://github.com/0x44-labs/rs-traversev"
+repository = "https://github.com/0x44-labs/rs-traversev"
+keywords = ["pow", "proof-of-work", "memory-hard", "blake3", "salsa20"]
+categories = ["cryptography", "authentication"]
+readme = "README.md"
 edition = "2024"
 
 [dependencies]
