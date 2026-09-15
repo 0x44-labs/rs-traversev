@@ -10,6 +10,7 @@ use subtle::{Choice, ConstantTimeEq};
 
 use crate::constants::BLOCK_SIZE;
 use crate::memory::{fill, initial_blocks};
+use crate::nonce::Nonce;
 pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
@@ -62,18 +63,20 @@ impl TraverseV {
 
     /// Mine for a nonce value satisfying this instance's difficulty.
     ///
-    /// Iteratively searches for candidates starting from `0u128` until one
-    /// satisfies the difficulty. Runtime is unbounded on high difficulties.
-    pub fn mine(&self) -> u128 {
-        let mut nonce = 0u128;
+    /// Iteratively searches for candidates until one satisfies the difficulty.
+    /// Runtime is unbounded on high difficulties.
+    pub fn mine(&self, input: &[u8]) -> u128 {
+        let mut nonce = Nonce::new();
 
         loop {
-            let candidate = self.authenticate(nonce);
+            let nonce_u128 = u128::from(nonce);
+
+            let candidate = self.authenticate(input, nonce_u128);
             let satisfied = self.check_n(&candidate);
 
             // Break loop when the constraint is satisfied
             if bool::from(satisfied) {
-                return nonce;
+                return nonce_u128;
             }
 
             nonce += 1
@@ -81,20 +84,21 @@ impl TraverseV {
     }
 
     /// Check if a nonce value satisfies this instance's difficulty.
-    pub fn verify(&self, nonce: u128) -> bool {
-        let candidate = self.authenticate(nonce);
+    pub fn verify(&self, input: &[u8], nonce: u128) -> bool {
+        let candidate = self.authenticate(input, nonce);
         let satisfied = self.check_n(&candidate);
 
         bool::from(satisfied)
     }
 
-    fn authenticate(&self, nonce: u128) -> [u8; 32] {
+    fn authenticate(&self, input: &[u8], nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
         hasher.update(&self.secret);
         let key: [u8; 32] = hasher.finalize().into();
 
         let mut hasher = Hasher::new_keyed(&key);
-        hasher.update(&nonce.to_le_bytes());
+        hasher.update(&u128::from(nonce).to_le_bytes());
+        hasher.update(&input);
 
         let mut x = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();

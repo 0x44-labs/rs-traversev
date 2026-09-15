@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::errors::TraverseVErr;
 
+#[derive(Clone, Copy)]
 pub struct Nonce {
     inner: u128,
 }
