@@ -1,5 +1,7 @@
 use core::ops::AddAssign;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use crate::errors::TraverseVErr;
 
 pub struct Nonce {
     inner: u128,
@@ -20,6 +22,13 @@ impl Nonce {
             .duration_since(UNIX_EPOCH)
             .expect("system time before Unix epoch")
             .as_secs()
+    }
+
+    fn validate(time: u64) -> Result<(), TraverseVErr> {
+        UNIX_EPOCH
+            .checked_add(Duration::from_secs(time))
+            .ok_or(TraverseVErr::InvalidNonce)?;
+        Ok(())
     }
 
     fn pack(time: u64, nonce: u64) -> u128 {
@@ -46,5 +55,22 @@ impl AddAssign<u64> for Nonce {
             let nonce = 0u64;
             self.inner = Self::pack(time, nonce);
         }
+    }
+}
+
+impl TryFrom<u128> for Nonce {
+    type Error = TraverseVErr;
+
+    fn try_from(value: u128) -> Result<Self, Self::Error> {
+        let time = (value >> 64) as u64;
+
+        Self::validate(time)?;
+        Ok(Self { inner: value })
+    }
+}
+
+impl From<Nonce> for u128 {
+    fn from(nonce: Nonce) -> Self {
+        nonce.inner
     }
 }

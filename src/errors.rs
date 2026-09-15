@@ -5,6 +5,7 @@ pub enum TraverseVErr {
     MixingTooLow,
     DifficultyTooLow,
     DifficultyTooHigh,
+    InvalidNonce,
 }
 
 impl core::fmt::Display for TraverseVErr {
@@ -15,6 +16,7 @@ impl core::fmt::Display for TraverseVErr {
             Self::MixingTooLow => "mixing rounds is too low",
             Self::DifficultyTooLow => "difficulty is too low",
             Self::DifficultyTooHigh => "difficulty is too high",
+            Self::InvalidNonce => "nonce time before unix epoch",
         };
         f.write_str(msg)
     }
