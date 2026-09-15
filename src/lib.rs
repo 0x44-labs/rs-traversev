@@ -14,6 +14,34 @@ use crate::nonce::Nonce;
 pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
+macro_rules! construct {
+    ($secret:expr, $context:expr, $params:expr) => {{
+        let secret: Option<&[u8]> = $secret;
+
+        let q = $params.m_cost() as usize;
+        let t = $params.t_cost() as usize;
+
+        let mut v = vec![0u8; q * BLOCK_SIZE];
+        let (b0, b1) = initial_blocks(
+            secret.unwrap_or(&[]),
+            $params.m_cost(),
+            $params.t_cost(),
+            $params.d_cost(),
+            $params.n_cost(),
+        );
+        v[0..BLOCK_SIZE].copy_from_slice(&b0);
+        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
+        fill(&mut v, q, t);
+
+        Self {
+            buffer: v,
+            secret: secret.map(|s| s.to_vec()),
+            context: $context.to_string(),
+            params: $params,
+        }
+    }};
+}
+
 /// TraverseV proof-of-work instance.
 ///
 /// Construction fills a memory buffer using a fill adapted from Argon2d. Each
@@ -42,27 +70,7 @@ impl TraverseV {
         context: &str,
         params: Params,
     ) -> Self {
-        let q = params.m_cost() as usize;
-        let t = params.t_cost() as usize;
-
-        let mut v = vec![0u8; q * BLOCK_SIZE];
-        let (b0, b1) = initial_blocks(
-            secret,
-            params.m_cost(),
-            params.t_cost(),
-            params.d_cost(),
-            params.n_cost(),
-        );
-        v[0..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-        fill(&mut v, q, t);
-
-        Self {
-            buffer: v,
-            secret: Some(secret.to_vec()),
-            context: context.to_string(),
-            params,
-        }
+        construct!(Some(secret), context, params)
     }
 
     /// Build a new `TraverseV` instance, without a secret for authentication.
@@ -70,27 +78,7 @@ impl TraverseV {
     /// Creates and fills a memory buffer, and stores this instance's
     /// application context and parameters.
     pub fn new_unauthenticated(context: &str, params: Params) -> Self {
-        let q = params.m_cost() as usize;
-        let t = params.t_cost() as usize;
-
-        let mut v = vec![0u8; q * BLOCK_SIZE];
-        let (b0, b1) = initial_blocks(
-            &[0u8; 0],
-            params.m_cost(),
-            params.t_cost(),
-            params.d_cost(),
-            params.n_cost(),
-        );
-        v[0..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-        fill(&mut v, q, t);
-
-        Self {
-            buffer: v,
-            secret: None,
-            context: context.to_string(),
-            params,
-        }
+        construct!(None, context, params)
     }
 
     /// Mine for a nonce value satisfying this instance's difficulty.
