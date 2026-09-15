@@ -1,7 +1,7 @@
 mod constants;
 mod errors;
 mod memory;
-mod preimage;
+mod nonce;
 mod params;
 mod traverse;
 
