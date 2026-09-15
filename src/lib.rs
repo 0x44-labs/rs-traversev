@@ -95,7 +95,7 @@ impl TraverseV {
         loop {
             let nonce_u128 = u128::from(nonce);
 
-            let candidate = self.authenticate(&prefix, nonce_u128);
+            let candidate = self.evaluate(&prefix, nonce_u128);
             let satisfied = self.check_n(&candidate);
 
             // Break loop when the constraint is satisfied
@@ -113,18 +113,22 @@ impl TraverseV {
         hasher.update(input);
         let prefix: [u8; 32] = hasher.finalize().into();
 
-        let candidate = self.authenticate(&prefix, nonce);
+        let candidate = self.evaluate(&prefix, nonce);
         let satisfied = self.check_n(&candidate);
 
         bool::from(satisfied)
     }
 
-    fn authenticate(&self, prefix: &[u8; 32], nonce: u128) -> [u8; 32] {
-        let mut hasher = Hasher::new_derive_key(&self.context);
-        hasher.update(&self.secret);
-        let key: [u8; 32] = hasher.finalize().into();
+    fn evaluate(&self, prefix: &[u8; 32], nonce: u128) -> [u8; 32] {
+        let mut hasher = if let Some(secret) = &self.secret {
+            let mut kdf = Hasher::new_derive_key(&self.context);
+            kdf.update(secret);
+            let key: [u8; 32] = kdf.finalize().into();
 
-        let mut hasher = Hasher::new_keyed(&key);
+            Hasher::new_keyed(&key)
+        } else {
+            Hasher::new()
+        };
         hasher.update(prefix);
         hasher.update(&u128::from(nonce).to_le_bytes());
 
