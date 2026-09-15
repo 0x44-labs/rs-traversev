@@ -68,10 +68,14 @@ impl TraverseV {
     pub fn mine(&self, input: &[u8]) -> u128 {
         let mut nonce = Nonce::new();
 
+        let mut hasher = Hasher::new();
+        hasher.update(input);
+        let prefix: [u8; 32] = hasher.finalize().into();
+
         loop {
             let nonce_u128 = u128::from(nonce);
 
-            let candidate = self.authenticate(input, nonce_u128);
+            let candidate = self.authenticate(&prefix, nonce_u128);
             let satisfied = self.check_n(&candidate);
 
             // Break loop when the constraint is satisfied
@@ -85,20 +89,24 @@ impl TraverseV {
 
     /// Check if a nonce value satisfies this instance's difficulty.
     pub fn verify(&self, input: &[u8], nonce: u128) -> bool {
-        let candidate = self.authenticate(input, nonce);
+        let mut hasher = Hasher::new();
+        hasher.update(input);
+        let prefix: [u8; 32] = hasher.finalize().into();
+
+        let candidate = self.authenticate(&prefix, nonce);
         let satisfied = self.check_n(&candidate);
 
         bool::from(satisfied)
     }
 
-    fn authenticate(&self, input: &[u8], nonce: u128) -> [u8; 32] {
+    fn authenticate(&self, prefix: &[u8; 32], nonce: u128) -> [u8; 32] {
         let mut hasher = Hasher::new_derive_key(&self.context);
         hasher.update(&self.secret);
         let key: [u8; 32] = hasher.finalize().into();
 
         let mut hasher = Hasher::new_keyed(&key);
+        hasher.update(prefix);
         hasher.update(&u128::from(nonce).to_le_bytes());
-        hasher.update(&input);
 
         let mut x = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();
