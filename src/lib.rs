@@ -26,8 +26,8 @@ use crate::traverse::dependency_chain;
 /// the scryptROMix algorithm's second loop, mixing memory blocks into the
 /// computation via Salsa20/8-based BlockMix.
 pub struct TraverseV {
-    inner: Vec<u8>,
-    secret: Vec<u8>,
+    buffer: Vec<u8>,
+    secret: Option<Vec<u8>>,
     context: String,
     params: Params,
 }
@@ -35,9 +35,13 @@ pub struct TraverseV {
 impl TraverseV {
     /// Build a new `TraverseV` instance.
     ///
-    /// Creates and fills a memory buffer, and stores this instance's
-    /// secret, application context, and parameters.
-    pub fn new(secret: &[u8], context: &str, params: Params) -> Self {
+    /// Creates and fills a memory buffer, and stores this instance's secret,
+    /// application context, and parameters.
+    pub fn new_with_secret(
+        secret: &[u8],
+        context: &str,
+        params: Params,
+    ) -> Self {
         let q = params.m_cost() as usize;
         let t = params.t_cost() as usize;
 
@@ -54,8 +58,36 @@ impl TraverseV {
         fill(&mut v, q, t);
 
         Self {
-            inner: v,
-            secret: secret.to_vec(),
+            buffer: v,
+            secret: Some(secret.to_vec()),
+            context: context.to_string(),
+            params,
+        }
+    }
+
+    /// Build a new `TraverseV` instance, without a secret for authentication.
+    ///
+    /// Creates and fills a memory buffer, and stores this instance's
+    /// application context and parameters.
+    pub fn new_unauthenticated(context: &str, params: Params) -> Self {
+        let q = params.m_cost() as usize;
+        let t = params.t_cost() as usize;
+
+        let mut v = vec![0u8; q * BLOCK_SIZE];
+        let (b0, b1) = initial_blocks(
+            &[0u8; 0],
+            params.m_cost(),
+            params.t_cost(),
+            params.d_cost(),
+            params.n_cost(),
+        );
+        v[0..BLOCK_SIZE].copy_from_slice(&b0);
+        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
+        fill(&mut v, q, t);
+
+        Self {
+            buffer: v,
+            secret: None,
             context: context.to_string(),
             params,
         }
@@ -114,7 +146,7 @@ impl TraverseV {
 
         let q = self.params.m_cost() as usize;
         let k = self.params.d_cost() as usize;
-        x = dependency_chain(x, &self.inner, q, k);
+        x = dependency_chain(x, &self.buffer, q, k);
         blake3::hash(&x).into()
     }
 
