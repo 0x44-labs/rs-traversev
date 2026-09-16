@@ -1,4 +1,4 @@
-use crate::constants::BLOCK_SIZE;
+use crate::common::BLOCK_SIZE;
 use crate::traverse::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop. The loop runs for `k` rounds

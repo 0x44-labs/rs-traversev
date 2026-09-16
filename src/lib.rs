@@ -1,4 +1,4 @@
-mod constants;
+mod common;
 mod errors;
 mod memory;
 mod nonce;
@@ -8,7 +8,7 @@ mod traverse;
 use blake3::Hasher;
 use subtle::{Choice, ConstantTimeEq};
 
-use crate::constants::BLOCK_SIZE;
+use crate::common::BLOCK_SIZE;
 use crate::memory::{fill, initial_blocks};
 use crate::nonce::Nonce;
 pub use crate::params::Params;

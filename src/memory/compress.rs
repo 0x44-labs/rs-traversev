@@ -32,7 +32,7 @@
 //! DEALINGS IN THE SOFTWARE.
 use core::num::Wrapping;
 
-use crate::constants::{BLOCK_SIZE, WORDS};
+use crate::common::{BLOCK_SIZE, WORDS};
 
 const TRUNC: u64 = u32::MAX as u64;
 

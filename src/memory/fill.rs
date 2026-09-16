@@ -1,4 +1,4 @@
-use crate::constants::{BLOCK_SIZE, WORDS};
+use crate::common::{BLOCK_SIZE, WORDS};
 use crate::memory::compress::{bytes_to_words, compress, words_to_bytes};
 
 /// Fill every block of V after the initial two blocks (RFC 9106  Further Block
