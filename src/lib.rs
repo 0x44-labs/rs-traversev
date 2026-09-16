@@ -14,7 +14,7 @@ use crate::nonce::Nonce;
 pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
-macro_rules! construct {
+macro_rules! fill_memory {
     ($secret:expr, $context:expr, $params:expr) => {{
         let secret: Option<&[u8]> = $secret;
 
@@ -33,12 +33,7 @@ macro_rules! construct {
         v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
         fill(&mut v, q, t);
 
-        Self {
-            buffer: v,
-            secret: secret.map(|s| s.to_vec()),
-            context: $context.to_string(),
-            params: $params,
-        }
+        v
     }};
 }
 
@@ -55,8 +50,8 @@ macro_rules! construct {
 /// computation via Salsa20/8-based BlockMix.
 pub struct TraverseV {
     buffer: Vec<u8>,
-    secret: Option<Vec<u8>>,
-    context: String,
+    context_tag: [u8; 32],
+    secret_key: Option<[u8; 32]>,
     params: Params,
 }
 
@@ -70,15 +65,41 @@ impl TraverseV {
         context: &str,
         params: Params,
     ) -> Self {
-        construct!(Some(secret), context, params)
+        let v = fill_memory!(Some(secret), context, params);
+
+        let mut hasher = Hasher::new();
+        hasher.update(context.as_bytes());
+        let context_tag: [u8; 32] = hasher.finalize().into();
+
+        let mut hasher = Hasher::new_derive_key(context);
+        hasher.update(secret);
+        let secret_key: [u8; 32] = hasher.finalize().into();
+
+        Self {
+            buffer: v,
+            context_tag,
+            secret_key: Some(secret_key),
+            params,
+        }
     }
 
     /// Build a new `TraverseV` instance, without a secret for authentication.
     ///
     /// Creates and fills a memory buffer, and stores this instance's
     /// application context and parameters.
-    pub fn new_unauthenticated(context: &str, params: Params) -> Self {
-        construct!(None, context, params)
+    pub fn new_without_secret(context: &str, params: Params) -> Self {
+        let v = fill_memory!(None, context, params);
+
+        let mut hasher = Hasher::new();
+        hasher.update(context.as_bytes());
+        let context_tag: [u8; 32] = hasher.finalize().into();
+
+        Self {
+            buffer: v,
+            context_tag,
+            secret_key: None,
+            params,
+        }
     }
 
     /// Mine for a nonce value satisfying this instance's difficulty.
