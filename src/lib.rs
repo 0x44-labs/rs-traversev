@@ -37,6 +37,16 @@ macro_rules! fill_memory {
     }};
 }
 
+macro_rules! context_tag {
+    ($context:expr) => {{
+        let mut hasher = Hasher::new();
+        hasher.update($context.as_bytes());
+        let tag: [u8; 32] = hasher.finalize().into();
+
+        tag
+    }};
+}
+
 /// TraverseV proof-of-work instance.
 ///
 /// Construction fills a memory buffer using a fill adapted from Argon2d. Each
@@ -67,15 +77,12 @@ impl TraverseV {
     /// configuration.
     pub fn new_trustless(context: &str, params: Params) -> Self {
         let v = fill_memory!(Mode::Trustless, None, context, params);
-
-        let mut hasher = Hasher::new();
-        hasher.update(context.as_bytes());
-        let context_tag: [u8; 32] = hasher.finalize().into();
+        let tag = context_tag!(context);
 
         Self {
             mode: Mode::Trustless,
             buffer: v,
-            tag: context_tag,
+            tag,
             key: None,
             params,
         }
@@ -95,10 +102,7 @@ impl TraverseV {
         params: Params,
     ) -> Self {
         let v = fill_memory!(Mode::Permissioned, Some(secret), context, params);
-
-        let mut hasher = Hasher::new();
-        hasher.update(context.as_bytes());
-        let context_tag: [u8; 32] = hasher.finalize().into();
+        let tag = context_tag!(context);
 
         let mut hasher = Hasher::new_derive_key(context);
         hasher.update(secret);
@@ -107,7 +111,7 @@ impl TraverseV {
         Self {
             mode: Mode::Permissioned,
             buffer: v,
-            tag: context_tag,
+            tag,
             key: Some(key),
             params,
         }
