@@ -178,7 +178,7 @@ impl TraverseV {
             Hasher::new()
         };
         hasher.update(prefix);
-        hasher.update(&u128::from(proof).to_le_bytes());
+        hasher.update(&proof.to_le_bytes());
         hasher.update(&self.tag);
 
         let mut x = [0u8; BLOCK_SIZE];
