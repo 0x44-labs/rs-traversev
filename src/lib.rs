@@ -15,19 +15,19 @@ pub use crate::params::Params;
 use crate::traverse::dependency_chain;
 
 macro_rules! fill_memory {
-    ($secret:expr, $context:expr, $params:expr) => {{
-        let secret: Option<&[u8]> = $secret;
-
+    ($mode: expr, $secret:expr, $context:expr, $params:expr) => {{
         let q = $params.m_cost() as usize;
         let t = $params.t_cost() as usize;
 
         let mut v = vec![0u8; q * BLOCK_SIZE];
         let (b0, b1) = initial_blocks(
-            secret.unwrap_or(&[]),
+            $mode,
             $params.m_cost(),
             $params.t_cost(),
             $params.d_cost(),
             $params.n_cost(),
+            $context,
+            $secret,
         );
         v[0..BLOCK_SIZE].copy_from_slice(&b0);
         v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
@@ -66,7 +66,7 @@ impl TraverseV {
     /// verifiable by any instance sharing the same application context and
     /// configuration.
     pub fn new_trustless(context: &str, params: Params) -> Self {
-        let v = fill_memory!(None, context, params);
+        let v = fill_memory!(Mode::Trustless, None, context, params);
 
         let mut hasher = Hasher::new();
         hasher.update(context.as_bytes());
@@ -94,7 +94,7 @@ impl TraverseV {
         context: &str,
         params: Params,
     ) -> Self {
-        let v = fill_memory!(Some(secret), context, params);
+        let v = fill_memory!(Mode::Permissioned, Some(secret), context, params);
 
         let mut hasher = Hasher::new();
         hasher.update(context.as_bytes());

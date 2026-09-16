@@ -1,6 +1,6 @@
 use blake3::Hasher;
 
-use crate::common::BLOCK_SIZE;
+use crate::common::{BLOCK_SIZE, Mode};
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
 /// Blocks and Second Lane Blocks, but specialised for TraverseV lacking a
@@ -12,13 +12,15 @@ use crate::common::BLOCK_SIZE;
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 pub fn initial_blocks(
-    secret: &[u8],
+    mode: Mode,
     m_cost: u32,
     t_cost: u32,
     d_cost: u32,
     n_cost: u32,
+    context: &str,
+    secret: Option<&[u8]>,
 ) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    let preimage = h_0(secret, m_cost, t_cost, d_cost, n_cost);
+    let preimage = h_0(mode, m_cost, t_cost, d_cost, n_cost, context, secret);
 
     let b0 = init(&preimage, 0);
     let b1 = init(&preimage, 1);
@@ -35,18 +37,29 @@ pub fn initial_blocks(
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 fn h_0(
-    secret: &[u8],
+    mode: Mode,
     m_cost: u32,
     t_cost: u32,
     d_cost: u32,
     n_cost: u32,
+    context: &str,
+    secret: Option<&[u8]>,
 ) -> [u8; 64] {
     let mut hasher = Hasher::new();
+    hasher.update(&[mode as u8]);
     hasher.update(&m_cost.to_le_bytes());
     hasher.update(&t_cost.to_le_bytes());
     hasher.update(&d_cost.to_le_bytes());
     hasher.update(&n_cost.to_le_bytes());
-    hasher.update(secret);
+
+    let context_bytes = context.as_bytes();
+    hasher.update(&(context_bytes.len() as u32).to_le_bytes());
+    hasher.update(context_bytes);
+
+    if let Some(secret) = secret {
+        hasher.update(&(secret.len() as u32).to_le_bytes());
+        hasher.update(secret);
+    }
 
     let mut out = [0u8; 64];
     let mut reader = hasher.finalize_xof();
