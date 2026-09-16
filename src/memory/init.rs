@@ -15,12 +15,12 @@ pub fn initial_blocks(
     mode: Mode,
     m_cost: u32,
     t_cost: u32,
-    d_cost: u32,
+    e_cost: u32,
     n_cost: u32,
     context: &str,
     secret: Option<&[u8]>,
 ) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    let preimage = h_0(mode, m_cost, t_cost, d_cost, n_cost, context, secret);
+    let preimage = h_0(mode, m_cost, t_cost, e_cost, n_cost, context, secret);
 
     let b0 = init(&preimage, 0);
     let b1 = init(&preimage, 1);
@@ -40,7 +40,7 @@ fn h_0(
     mode: Mode,
     m_cost: u32,
     t_cost: u32,
-    d_cost: u32,
+    e_cost: u32,
     n_cost: u32,
     context: &str,
     secret: Option<&[u8]>,
@@ -49,7 +49,7 @@ fn h_0(
     hasher.update(&[mode as u8]);
     hasher.update(&m_cost.to_le_bytes());
     hasher.update(&t_cost.to_le_bytes());
-    hasher.update(&d_cost.to_le_bytes());
+    hasher.update(&e_cost.to_le_bytes());
     hasher.update(&n_cost.to_le_bytes());
 
     let context_bytes = context.as_bytes();

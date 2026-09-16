@@ -24,7 +24,7 @@ macro_rules! fill_memory {
             $mode,
             $params.m_cost(),
             $params.t_cost(),
-            $params.d_cost(),
+            $params.e_cost(),
             $params.n_cost(),
             $context,
             $secret,
@@ -186,7 +186,7 @@ impl TraverseV {
         reader.fill(&mut x);
 
         let q = self.params.m_cost() as usize;
-        let k = self.params.d_cost() as usize;
+        let k = self.params.e_cost() as usize;
         x = dependency_chain(x, &self.buffer, q, k);
         blake3::hash(&x).into()
     }

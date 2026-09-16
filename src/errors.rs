@@ -2,7 +2,7 @@
 pub enum TraverseVErr {
     MemoryTooSmall,
     TimeTooSmall,
-    MixingTooLow,
+    EvaluationTooFew,
     DifficultyTooLow,
     DifficultyTooHigh,
     InvalidNonce,
@@ -13,7 +13,7 @@ impl core::fmt::Display for TraverseVErr {
         let msg = match self {
             Self::MemoryTooSmall => "memory cost is too small",
             Self::TimeTooSmall => "time cost is too small",
-            Self::MixingTooLow => "mixing rounds is too low",
+            Self::EvaluationTooFew => "evaluation rounds is too few",
             Self::DifficultyTooLow => "difficulty is too low",
             Self::DifficultyTooHigh => "difficulty is too high",
             Self::InvalidNonce => "nonce time before unix epoch",

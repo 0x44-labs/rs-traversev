@@ -5,7 +5,7 @@ use crate::errors::TraverseVErr;
 pub struct Params {
     m_cost: u32,
     t_cost: u32,
-    d_cost: u32,
+    e_cost: u32,
     n_cost: u32,
 }
 
@@ -26,10 +26,10 @@ impl Params {
     #[allow(dead_code)]
     const MAX_T: u32 = u32::MAX;
 
-    /// Default number of mixing rounds `d`.
-    pub const DEFAULT_D: u32 = 8;
+    /// Default number of evaluation mixing rounds `e`.
+    pub const DEFAULT_E: u32 = 8;
 
-    const MIN_D: u32 = 1;
+    const MIN_E: u32 = 1;
 
     #[allow(dead_code)]
     const MAX_D: u32 = u32::MAX;
@@ -45,7 +45,7 @@ impl Params {
     pub const DEFAULT: Self = Params {
         m_cost: Self::DEFAULT_M,
         t_cost: Self::DEFAULT_T,
-        d_cost: Self::DEFAULT_D,
+        e_cost: Self::DEFAULT_E,
         n_cost: Self::DEFAULT_N,
     };
 
@@ -57,14 +57,14 @@ impl Params {
     /// # Arguments
     /// - `m_cost`: memory cost in 1 KiB blocks. Between 2 and (2^32) - 1.
     /// - `t_cost`: number of memory fill iterations. Between 1 and (2^32) - 1.
-    /// - `d_cost`: number of sequential dependency mixing rounds. Between 1
-    ///   and (2^32) - 1.
+    /// - `e_cost`: number of evaluation mixing rounds. Between 1 and
+    ///   (2^32) - 1.
     /// - `n_cost`: proof-of-work difficulty as a number of leading zero bits.
-    ///   Between 2 and (2^8) - 1.
+    ///   Between 1 and (2^8) - 1.
     pub fn new(
         m_cost: u32,
         t_cost: u32,
-        d_cost: u32,
+        e_cost: u32,
         n_cost: u32,
     ) -> Result<Self, TraverseVErr> {
         if m_cost < Self::MIN_M {
@@ -73,8 +73,8 @@ impl Params {
         if t_cost < Self::MIN_T {
             return Err(TraverseVErr::TimeTooSmall);
         }
-        if d_cost < Self::MIN_D {
-            return Err(TraverseVErr::MixingTooLow);
+        if e_cost < Self::MIN_E {
+            return Err(TraverseVErr::EvaluationTooFew);
         }
         if n_cost < Self::MIN_N {
             return Err(TraverseVErr::DifficultyTooLow);
@@ -86,7 +86,7 @@ impl Params {
         Ok(Self {
             m_cost,
             t_cost,
-            d_cost,
+            e_cost,
             n_cost,
         })
     }
@@ -102,8 +102,8 @@ impl Params {
     }
 
     /// Number of sequential dependency mixing rounds
-    pub const fn d_cost(&self) -> u32 {
-        self.d_cost
+    pub const fn e_cost(&self) -> u32 {
+        self.e_cost
     }
 
     /// Proof-of-work difficulty.
