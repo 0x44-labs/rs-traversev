@@ -54,8 +54,8 @@ macro_rules! context_tag {
 /// block via Argon2's BLAKE2b-based compression function, repeated over
 /// multiple passes.
 ///
-/// Mining iteratively searches for a nonce that satisfies this instance's
-/// difficulty. Each candidate nonce is evaluated by applying rounds of the
+/// Mining iteratively searches for a proof that satisfies this instance's
+/// difficulty. Each candidate is evaluated by applying rounds of the
 /// scryptROMix algorithm's second loop, mixing memory blocks into the
 /// computation via Salsa20/8-based BlockMix.
 pub struct TraverseV {
@@ -133,14 +133,14 @@ impl TraverseV {
         let prefix: [u8; 32] = hasher.finalize().into();
 
         loop {
-            let nonce_u128 = u128::from(nonce);
+            let proof = u128::from(nonce);
 
-            let candidate = self.evaluate(&prefix, nonce_u128);
+            let candidate = self.evaluate(&prefix, proof);
             let satisfied = self.check_n(&candidate);
 
             // Break loop when the constraint is satisfied
             if bool::from(satisfied) {
-                return nonce_u128;
+                return proof;
             }
 
             nonce += 1
@@ -155,12 +155,12 @@ impl TraverseV {
     /// A [trustless](Self::new_trustless) instance can only verify trustless
     /// proofs, and a and a [permissioned](Self::new_permissioned) instance can
     /// only verify permissioned proofs.
-    pub fn verify(&self, input: &[u8], nonce: u128) -> bool {
+    pub fn verify(&self, input: &[u8], proof: u128) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
         let prefix: [u8; 32] = hasher.finalize().into();
 
-        let candidate = self.evaluate(&prefix, nonce);
+        let candidate = self.evaluate(&prefix, proof);
         let satisfied = self.check_n(&candidate);
 
         bool::from(satisfied)
@@ -171,14 +171,14 @@ impl TraverseV {
         self.mode
     }
 
-    fn evaluate(&self, prefix: &[u8; 32], nonce: u128) -> [u8; 32] {
+    fn evaluate(&self, prefix: &[u8; 32], proof: u128) -> [u8; 32] {
         let mut hasher = if let Some(key) = &self.key {
             Hasher::new_keyed(key)
         } else {
             Hasher::new()
         };
         hasher.update(prefix);
-        hasher.update(&u128::from(nonce).to_le_bytes());
+        hasher.update(&u128::from(proof).to_le_bytes());
         hasher.update(&self.tag);
 
         let mut x = [0u8; BLOCK_SIZE];
