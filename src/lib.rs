@@ -141,17 +141,14 @@ impl TraverseV {
     }
 
     fn evaluate(&self, prefix: &[u8; 32], nonce: u128) -> [u8; 32] {
-        let mut hasher = if let Some(secret) = &self.secret {
-            let mut kdf = Hasher::new_derive_key(&self.context);
-            kdf.update(secret);
-            let key: [u8; 32] = kdf.finalize().into();
-
-            Hasher::new_keyed(&key)
+        let mut hasher = if let Some(key) = &self.secret_key {
+            Hasher::new_keyed(key)
         } else {
             Hasher::new()
         };
         hasher.update(prefix);
         hasher.update(&u128::from(nonce).to_le_bytes());
+        hasher.update(&self.context_tag);
 
         let mut x = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();
