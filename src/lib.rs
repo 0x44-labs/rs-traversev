@@ -9,6 +9,7 @@ use blake3::Hasher;
 use subtle::{Choice, ConstantTimeEq};
 
 use crate::common::{BLOCK_SIZE, Mode};
+pub use crate::errors::TraverseVErr;
 use crate::memory::{fill, initial_blocks};
 use crate::nonce::Nonce;
 pub use crate::params::Params;
