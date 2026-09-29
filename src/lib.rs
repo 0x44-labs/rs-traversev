@@ -7,6 +7,8 @@ mod traverse;
 
 use blake3::Hasher;
 use subtle::{Choice, ConstantTimeEq};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::common::{BLOCK_SIZE, Mode};
 pub use crate::errors::TraverseVErr;
@@ -21,7 +23,8 @@ macro_rules! fill_memory {
         let t = $params.t_cost() as usize;
 
         let mut v = vec![0u8; q * BLOCK_SIZE];
-        let (b0, b1) = initial_blocks(
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let (mut b0, mut b1) = initial_blocks(
             $mode,
             $params.m_cost(),
             $params.t_cost(),
@@ -32,6 +35,13 @@ macro_rules! fill_memory {
         );
         v[0..BLOCK_SIZE].copy_from_slice(&b0);
         v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
+
+        #[cfg(feature = "zeroize")]
+        {
+            b0.zeroize();
+            b1.zeroize();
+        }
+
         fill(&mut v, q, t);
 
         v
@@ -42,7 +52,15 @@ macro_rules! context_tag {
     ($context:expr) => {{
         let mut hasher = Hasher::new();
         hasher.update($context.as_bytes());
-        let tag: [u8; 32] = hasher.finalize().into();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = hasher.finalize();
+        let tag: [u8; 32] = hash.into();
+
+        #[cfg(feature = "zeroize")]
+        {
+            hasher.zeroize();
+            hash.zeroize();
+        }
 
         tag
     }};
@@ -78,15 +96,21 @@ impl TraverseV {
     /// configuration.
     pub fn new_trustless(context: &str, params: Params) -> Self {
         let v = fill_memory!(Mode::Trustless, None, context, params);
-        let tag = context_tag!(context);
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut tag = context_tag!(context);
 
-        Self {
+        let this = Self {
             mode: Mode::Trustless,
             buffer: v,
             tag,
             key: None,
             params,
-        }
+        };
+
+        #[cfg(feature = "zeroize")]
+        tag.zeroize();
+
+        this
     }
 
     /// Build a new permissioned `TraverseV` instance.
@@ -103,19 +127,33 @@ impl TraverseV {
         params: Params,
     ) -> Self {
         let v = fill_memory!(Mode::Permissioned, Some(secret), context, params);
-        let tag = context_tag!(context);
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut tag = context_tag!(context);
 
         let mut hasher = Hasher::new_derive_key(context);
         hasher.update(secret);
-        let key: [u8; 32] = hasher.finalize().into();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = hasher.finalize();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut key: [u8; 32] = hash.into();
 
-        Self {
+        let this = Self {
             mode: Mode::Permissioned,
             buffer: v,
             tag,
             key: Some(key),
             params,
+        };
+
+        #[cfg(feature = "zeroize")]
+        {
+            tag.zeroize();
+            hasher.zeroize();
+            hash.zeroize();
+            key.zeroize();
         }
+
+        this
     }
 
     /// Mine for a proof satisfying this instance's configured difficulty.
@@ -131,21 +169,39 @@ impl TraverseV {
 
         let mut hasher = Hasher::new();
         hasher.update(input);
-        let prefix: [u8; 32] = hasher.finalize().into();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = hasher.finalize();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut prefix: [u8; 32] = hash.into();
 
-        loop {
-            let proof = u128::from(nonce);
+        #[cfg(feature = "zeroize")]
+        {
+            hasher.zeroize();
+            hash.zeroize();
+        }
 
-            let candidate = self.evaluate(&prefix, proof);
+        let proof = loop {
+            let v = u128::from(nonce);
+
+            #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+            let mut candidate = self.evaluate(&prefix, v);
             let satisfied = self.check_n(&candidate);
+
+            #[cfg(feature = "zeroize")]
+            candidate.zeroize();
 
             // Break loop when the constraint is satisfied
             if bool::from(satisfied) {
-                return proof;
+                break v;
             }
 
             nonce += 1
-        }
+        };
+
+        #[cfg(feature = "zeroize")]
+        prefix.zeroize();
+
+        proof
     }
 
     /// Verify that a proof satisfies this instance's difficulty.
@@ -159,10 +215,22 @@ impl TraverseV {
     pub fn verify(&self, input: &[u8], proof: u128) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
-        let prefix: [u8; 32] = hasher.finalize().into();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = hasher.finalize();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut prefix: [u8; 32] = hash.into();
 
-        let candidate = self.evaluate(&prefix, proof);
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut candidate = self.evaluate(&prefix, proof);
         let satisfied = self.check_n(&candidate);
+
+        #[cfg(feature = "zeroize")]
+        {
+            hasher.zeroize();
+            hash.zeroize();
+            prefix.zeroize();
+            candidate.zeroize();
+        }
 
         bool::from(satisfied)
     }
@@ -172,14 +240,14 @@ impl TraverseV {
         self.mode
     }
 
-    fn evaluate(&self, prefix: &[u8; 32], proof: u128) -> [u8; 32] {
+    fn evaluate(&self, prefix: &[u8; 32], v: u128) -> [u8; 32] {
         let mut hasher = if let Some(key) = &self.key {
             Hasher::new_keyed(key)
         } else {
             Hasher::new()
         };
         hasher.update(prefix);
-        hasher.update(&proof.to_le_bytes());
+        hasher.update(&v.to_le_bytes());
         hasher.update(&self.tag);
 
         let mut x = [0u8; BLOCK_SIZE];
@@ -189,7 +257,19 @@ impl TraverseV {
         let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
         x = dependency_chain(x, &self.buffer, q, k);
-        blake3::hash(&x).into()
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = blake3::hash(&x);
+        let candidate: [u8; 32] = hash.into();
+
+        #[cfg(feature = "zeroize")]
+        {
+            hasher.zeroize();
+            reader.zeroize();
+            x.zeroize();
+            hash.zeroize();
+        }
+
+        candidate
     }
 
     fn check_n(&self, candidate: &[u8; 32]) -> Choice {
