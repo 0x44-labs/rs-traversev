@@ -3,12 +3,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::errors::TraverseVErr;
 
+/// Proof nonce packed into a [u128].
+///
+/// The upper 64 bits hold the Unix timestamp in seconds from when it was
+/// created, and the lower 64 bits hold a counter starting at zero.
 #[derive(Clone, Copy)]
 pub struct Nonce {
     inner: u128,
 }
 
 impl Nonce {
+    /// Create a nonce with the current timestamp and a counter of zero
     pub fn new() -> Self {
         let time = Self::timestamp();
         let nonce = 0u64;
@@ -45,6 +50,9 @@ impl Nonce {
 }
 
 impl AddAssign<u64> for Nonce {
+    /// Performs the `+=` operation on the counter. If the addition would
+    /// overflow, the counter restarts at zero under a fresh timestamp instead
+    /// of wrapping.
     fn add_assign(&mut self, rhs: u64) {
         let (time, mut nonce) = self.unpack();
 
