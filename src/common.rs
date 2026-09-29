@@ -4,7 +4,7 @@ pub const BLOCK_SIZE: usize = 1024;
 /// Words per TraverseV block.
 pub const WORDS: usize = BLOCK_SIZE / 8;
 
-/// Indicates whether a `TraverseV` instance produces trustless or permissioned
+/// Indicates whether a TraverseV instance produces trustless or permissioned
 /// proofs.
 #[derive(Copy, Clone)]
 #[repr(u8)]

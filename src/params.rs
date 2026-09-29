@@ -1,6 +1,6 @@
 use crate::errors::TraverseVErr;
 
-/// TraverseV parameters.
+/// TraverseV proof-of-work parameters.
 #[derive(Copy, Clone)]
 pub struct Params {
     m_cost: u32,
