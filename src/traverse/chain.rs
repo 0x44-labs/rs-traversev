@@ -1,3 +1,6 @@
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 use crate::common::BLOCK_SIZE;
 use crate::traverse::blockmix::block_mix;
 
@@ -21,6 +24,9 @@ pub fn dependency_chain(
         }
 
         x = block_mix(&t);
+
+        #[cfg(feature = "zeroize")]
+        t.zeroize();
     }
 
     x
@@ -33,9 +39,14 @@ pub fn dependency_chain(
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
 fn integerify(x: &[u8; BLOCK_SIZE]) -> u64 {
-    u64::from_le_bytes(
-        x[BLOCK_SIZE - 8..]
-            .try_into()
-            .expect("slicing at a fixed aligned offset always yields 8 bytes"),
-    )
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut chunk: [u8; 8] = x[BLOCK_SIZE - 8..]
+        .try_into()
+        .expect("slicing at a fixed aligned offset always yields 8 bytes");
+    let j = u64::from_le_bytes(chunk);
+
+    #[cfg(feature = "zeroize")]
+    chunk.zeroize();
+
+    j
 }

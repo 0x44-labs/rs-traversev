@@ -15,7 +15,7 @@ readme = "README.md"
 edition = "2024"
 
 [features]
-zeroize = ["dep:zeroize", "blake3/zeroize"]
+zeroize = ["dep:zeroize", "blake3/zeroize", "salsa20/zeroize"]
 
 [dependencies]
 blake3 = "1.8.7"

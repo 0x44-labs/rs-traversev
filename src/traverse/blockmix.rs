@@ -1,5 +1,7 @@
 use salsa20::SalsaCore;
 use salsa20::cipher::{StreamCipherCore, consts::U4};
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::common::BLOCK_SIZE;
 
@@ -26,6 +28,9 @@ pub(crate) fn block_mix(b: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
         }
         x = salsa(&t);
         y[i] = x;
+
+        #[cfg(feature = "zeroize")]
+        t.zeroize();
     }
 
     let mut out = [0u8; BLOCK_SIZE];
@@ -39,6 +44,13 @@ pub(crate) fn block_mix(b: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
         pos += 1;
     }
 
+    #[cfg(feature = "zeroize")]
+    {
+        sub.zeroize();
+        x.zeroize();
+        y.zeroize();
+    }
+
     out
 }
 
@@ -48,14 +60,21 @@ pub(crate) fn block_mix(b: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
 fn salsa(t: &[u8; 64]) -> [u8; 64] {
     let mut state = [0u32; 16];
     for i in 0..16 {
-        state[i] =
-            u32::from_le_bytes(t[i * 4..i * 4 + 4].try_into().expect(
-                "slicing at a fixed aligned offset always yields 4 bytes",
-            ))
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut chunk: [u8; 4] = t[i * 4..i * 4 + 4]
+            .try_into()
+            .expect("slicing at a fixed aligned offset always yields 4 bytes");
+        state[i] = u32::from_le_bytes(chunk);
+        #[cfg(feature = "zeroize")]
+        chunk.zeroize();
     }
 
     let mut block = [0u8; 64];
     SalsaCore::<U4>::from_raw_state(state)
         .write_keystream_block((&mut block).into());
+
+    #[cfg(feature = "zeroize")]
+    state.zeroize();
+
     block
 }
