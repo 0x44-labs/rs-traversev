@@ -3,7 +3,7 @@
 //! the `Block` struct of argon2/src/block.rs, and the TRUNC constant along
 //! with the permutation macros are direct copies of what appears in block.rs.
 //!
-//! https://github.com/RustCrypto/password-hashes
+//! <https://github.com/RustCrypto/password-hashes>
 //!
 //! Copyright (c) 2021-2026 The RustCrypto Project Developers
 //!

@@ -1,3 +1,61 @@
+//! A pure Rust implementation of TraverseV, a memory-hard proof-of-work
+//! construction producing trustless or permissioned proofs.
+//!
+//! A memory-hard structure is built once through a multi-pass fill in which
+//! each block is derived from previously computed blocks using data-dependent
+//! addressing and a mixing function adapted from Argon2d. Candidate nonce
+//! values are then evaluated against that structure through a sequential,
+//! read-only traversal derived from scrypt, in which each round's memory
+//! access depends on the result of the previous round.
+//!
+//! Whether a TraverseV instance produces trustless or permissioned proofs is
+//! fixed at construction.
+//! - A [trustless](TraverseV::new_trustless) instance is built from
+//!   application context and parameters. Its proofs are based on the BLAKE3
+//!   regular hash function, and are verifiable by any instance sharing the
+//!   same configuration.
+//! - A [permissioned](TraverseV::new_permissioned) instance is built from
+//!   application context, parameters, and a shared secret. Its proofs are
+//!   based on the BLAKE3 keyed hash function, and are verifiable only by
+//!   instances sharing the same configuration and shared secret.
+//!
+//! Mining searches over nonce values until one meets the target difficulty,
+//! while verifying a candidate is cheap and does not require repeating that
+//! search.
+//!
+//! # Example
+//! ```
+//! use traversev::{Params, TraverseV};
+//!
+//! fn main() {
+//!     let params = Params::default();
+//!     let context = "65daysofstatic";
+//!
+//!     // Build a trustless instance
+//!     let miner = TraverseV::new_trustless(context, params);
+//!
+//!     // Mine for a trustless proof over some input
+//!     let input = b"65 Doesn't Understand You";
+//!     let proof = miner.mine(input);
+//!
+//!     // Any trustless instance with the same configuration can verify
+//!     let verifier = TraverseV::new_trustless(context, params);
+//!     assert!(verifier.verify(input, proof));
+//!
+//!     // Build a permissioned instance with a shared secret
+//!     let secret = b"One Time for All Time";
+//!     let miner = TraverseV::new_permissioned(secret, context, params);
+//!
+//!     // A trustless instance cannot verify a permissioned proof
+//!     let proof = miner.mine(input);
+//!     assert!(!verifier.verify(input, proof));
+//! }
+//! ```
+//!
+//! # Features
+//!
+//! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
+//! TraverseV, and zeroises intermediate values.
 mod common;
 mod errors;
 mod memory;
@@ -10,7 +68,7 @@ use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::common::{BLOCK_SIZE, Mode};
+pub use crate::common::{BLOCK_SIZE, Mode};
 pub use crate::errors::TraverseVErr;
 use crate::memory::{fill, initial_blocks};
 use crate::nonce::Nonce;
