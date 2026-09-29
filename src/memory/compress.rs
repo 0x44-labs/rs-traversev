@@ -31,6 +31,8 @@
 //! IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //! DEALINGS IN THE SOFTWARE.
 use core::num::Wrapping;
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::common::{BLOCK_SIZE, WORDS};
 
@@ -118,10 +120,13 @@ pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
 pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
     let mut words = [0u64; WORDS];
     for i in 0..WORDS {
-        words[i] =
-            u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().expect(
-                "slicing at a fixed aligned offset always yields 8 bytes",
-            ));
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut chunk: [u8; 8] = bytes[i * 8..i * 8 + 8]
+            .try_into()
+            .expect("slicing at a fixed aligned offset always yields 8 bytes");
+        words[i] = u64::from_le_bytes(chunk);
+        #[cfg(feature = "zeroize")]
+        chunk.zeroize();
     }
 
     words
@@ -131,7 +136,11 @@ pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
 pub(crate) fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
     let mut bytes = [0u8; BLOCK_SIZE];
     for i in 0..WORDS {
-        bytes[i * 8..i * 8 + 8].copy_from_slice(&words[i].to_le_bytes());
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut word_bytes = words[i].to_le_bytes();
+        bytes[i * 8..i * 8 + 8].copy_from_slice(&word_bytes);
+        #[cfg(feature = "zeroize")]
+        word_bytes.zeroize();
     }
 
     bytes
