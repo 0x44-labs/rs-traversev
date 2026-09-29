@@ -78,3 +78,9 @@ fn salsa(t: &[u8; 64]) -> [u8; 64] {
 
     block
 }
+
+#[cfg(feature = "zeroize")]
+const _: () = {
+    const fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
+    assert_zeroize_on_drop::<SalsaCore<U4>>();
+};
