@@ -68,12 +68,22 @@ fn preimage(
     hasher.update(&n_cost.to_le_bytes());
 
     let context_bytes = context.as_bytes();
-    hasher.update(&(context_bytes.len() as u32).to_le_bytes());
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut context_len = (context_bytes.len() as u32).to_le_bytes();
+    hasher.update(&context_len);
     hasher.update(context_bytes);
 
+    #[cfg(feature = "zeroize")]
+    context_len.zeroize();
+
     if let Some(secret) = secret {
-        hasher.update(&(secret.len() as u32).to_le_bytes());
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut secret_len = (secret.len() as u32).to_le_bytes();
+        hasher.update(&secret_len);
         hasher.update(secret);
+
+        #[cfg(feature = "zeroize")]
+        secret_len.zeroize();
     }
 
     let mut out = [0u8; 64];
