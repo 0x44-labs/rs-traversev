@@ -1,4 +1,6 @@
 use blake3::Hasher;
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
 
 use crate::common::{BLOCK_SIZE, Mode};
 
@@ -20,10 +22,23 @@ pub fn initial_blocks(
     context: &str,
     secret: Option<&[u8]>,
 ) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    let preimage = h_0(mode, m_cost, t_cost, e_cost, n_cost, context, secret);
+    #[rustfmt::skip]
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut h_0 = preimage(
+        mode,
+        m_cost,
+        t_cost,
+        e_cost,
+        n_cost,
+        context,
+        secret
+    );
 
-    let b0 = init(&preimage, 0);
-    let b1 = init(&preimage, 1);
+    let b0 = init(&h_0, 0);
+    let b1 = init(&h_0, 1);
+
+    #[cfg(feature = "zeroize")]
+    h_0.zeroize();
 
     (b0, b1)
 }
@@ -36,7 +51,7 @@ pub fn initial_blocks(
 /// parameters and with BLAKE3 instead of BLAKE2b.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-fn h_0(
+fn preimage(
     mode: Mode,
     m_cost: u32,
     t_cost: u32,
@@ -65,6 +80,12 @@ fn h_0(
     let mut reader = hasher.finalize_xof();
     reader.fill(&mut out);
 
+    #[cfg(feature = "zeroize")]
+    {
+        hasher.zeroize();
+        reader.zeroize();
+    }
+
     out
 }
 
@@ -73,7 +94,8 @@ fn h_0(
 ///
 /// Replaces RFC 9106's Function H' for Tag and Initial Block Computations.
 fn init(preimage: &[u8; 64], index: u32) -> [u8; BLOCK_SIZE] {
-    let input = [preimage.as_slice(), &index.to_le_bytes()].concat();
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut input = [preimage.as_slice(), &index.to_le_bytes()].concat();
 
     let mut hasher = Hasher::new();
     hasher.update(&input);
@@ -81,6 +103,13 @@ fn init(preimage: &[u8; 64], index: u32) -> [u8; BLOCK_SIZE] {
     let mut out = [0u8; BLOCK_SIZE];
     let mut reader = hasher.finalize_xof();
     reader.fill(&mut out);
+
+    #[cfg(feature = "zeroize")]
+    {
+        input.zeroize();
+        hasher.zeroize();
+        reader.zeroize();
+    }
 
     out
 }

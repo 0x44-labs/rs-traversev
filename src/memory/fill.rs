@@ -1,3 +1,6 @@
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 use crate::common::{BLOCK_SIZE, WORDS};
 use crate::memory::compress::{bytes_to_words, compress, words_to_bytes};
 
@@ -12,12 +15,20 @@ use crate::memory::compress::{bytes_to_words, compress, words_to_bytes};
 pub fn fill(v: &mut [u8], q: usize, t: usize) {
     let mut words = vec![0u64; q * WORDS];
     for i in 0..q {
-        let block_bytes: [u8; BLOCK_SIZE] = v
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut block_bytes: [u8; BLOCK_SIZE] = v
             [i * BLOCK_SIZE..(i + 1) * BLOCK_SIZE]
             .try_into()
             .expect("v is laid out in fixed BLOCK_SIZE blocks");
-        words[i * WORDS..(i + 1) * WORDS]
-            .copy_from_slice(&bytes_to_words(&block_bytes));
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut block_words = bytes_to_words(&block_bytes);
+        words[i * WORDS..(i + 1) * WORDS].copy_from_slice(&block_words);
+
+        #[cfg(feature = "zeroize")]
+        {
+            block_bytes.zeroize();
+            block_words.zeroize();
+        }
     }
 
     for pass in 0..t {
@@ -28,12 +39,23 @@ pub fn fill(v: &mut [u8], q: usize, t: usize) {
     }
 
     for i in 0..q {
-        let block_words: [u64; WORDS] = words[i * WORDS..(i + 1) * WORDS]
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut block_words: [u64; WORDS] = words[i * WORDS..(i + 1) * WORDS]
             .try_into()
             .expect("words is laid out in fixed WORDS-sized blocks");
-        v[i * BLOCK_SIZE..(i + 1) * BLOCK_SIZE]
-            .copy_from_slice(&words_to_bytes(&block_words));
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut block_bytes = words_to_bytes(&block_words);
+        v[i * BLOCK_SIZE..(i + 1) * BLOCK_SIZE].copy_from_slice(&block_bytes);
+
+        #[cfg(feature = "zeroize")]
+        {
+            block_words.zeroize();
+            block_bytes.zeroize();
+        }
     }
+
+    #[cfg(feature = "zeroize")]
+    words.zeroize();
 }
 
 /// Compute a single block of V as the compression of the block at [prev_index]
@@ -45,18 +67,28 @@ pub fn fill(v: &mut [u8], q: usize, t: usize) {
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 fn fill_block(v: &mut [u64], q: usize, pass: usize, j: usize) {
     let prev = prev_index(pass, j, q);
-    let prev_words: [u64; WORDS] = v[prev * WORDS..(prev + 1) * WORDS]
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut prev_words: [u64; WORDS] = v[prev * WORDS..(prev + 1) * WORDS]
         .try_into()
         .expect("v is laid out in fixed WORDS-sized blocks");
 
     let len = w_len(pass, j, q);
     let z = reference_index(prev, len, &prev_words);
-    let ref_words: [u64; WORDS] = v[z * WORDS..(z + 1) * WORDS]
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut ref_words: [u64; WORDS] = v[z * WORDS..(z + 1) * WORDS]
         .try_into()
         .expect("v is laid out in fixed WORDS-sized blocks");
 
-    let result = compress(&prev_words, &ref_words);
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut result = compress(&prev_words, &ref_words);
     v[j * WORDS..(j + 1) * WORDS].copy_from_slice(&result);
+
+    #[cfg(feature = "zeroize")]
+    {
+        prev_words.zeroize();
+        ref_words.zeroize();
+        result.zeroize();
+    }
 }
 
 /// Index of the block immediately preceding the one being computed.

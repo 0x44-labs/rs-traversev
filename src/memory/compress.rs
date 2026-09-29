@@ -113,6 +113,10 @@ pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
     for i in 0..WORDS {
         q[i] ^= r[i];
     }
+
+    #[cfg(feature = "zeroize")]
+    r.zeroize();
+
     q
 }
 
