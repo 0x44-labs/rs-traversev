@@ -8,7 +8,7 @@ mod traverse;
 use blake3::Hasher;
 use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::common::{BLOCK_SIZE, Mode};
 pub use crate::errors::TraverseVErr;
@@ -290,3 +290,15 @@ impl TraverseV {
         satisfied
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl Drop for TraverseV {
+    fn drop(&mut self) {
+        self.buffer.zeroize();
+        self.tag.zeroize();
+        self.key.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl ZeroizeOnDrop for TraverseV {}
