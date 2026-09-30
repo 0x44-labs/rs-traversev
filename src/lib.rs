@@ -1,29 +1,5 @@
-//! A pure Rust implementation of TraverseV, a memory-hard proof-of-work
-//! construction producing trustless or permissioned proofs.
-//!
-//! A memory-hard structure is built once through a multi-pass fill in which
-//! each block is derived from previously computed blocks using data-dependent
-//! addressing and a mixing function adapted from Argon2d. Candidate nonce
-//! values are then evaluated against that structure through a sequential,
-//! read-only traversal derived from scrypt, in which each round's memory
-//! access depends on the result of the previous round.
-//!
-//! Whether a TraverseV instance produces trustless or permissioned proofs is
-//! fixed at construction.
-//! - A [trustless](TraverseV::new_trustless) instance is built from
-//!   application context and parameters. Its proofs are based on the BLAKE3
-//!   regular hash function, and are verifiable by any instance sharing the
-//!   same configuration.
-//! - A [permissioned](TraverseV::new_permissioned) instance is built from
-//!   a shared secret, application context, and parameters. Its proofs are
-//!   based on the BLAKE3 keyed hash function, and are verifiable only by
-//!   instances sharing the same configuration and shared secret.
-//!
-//! Mining searches over nonce values until one meets the target difficulty,
-//! while verifying a candidate is cheap and does not require repeating that
-//! search.
-//!
-//! # Example
+#![doc = include_str!("../README.md")]
+//! ## Example
 //! ```
 //! use traversev::{Params, TraverseV};
 //!
@@ -52,7 +28,7 @@
 //! }
 //! ```
 //!
-//! # Features
+//! ## Features
 //!
 //! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
 //! TraverseV, and zeroises intermediate values.
@@ -135,7 +111,7 @@ macro_rules! context_tag {
 /// difficulty. Each candidate is evaluated by applying rounds of the
 /// scryptROMix algorithm's second loop, mixing memory blocks into the
 /// computation via Salsa20/8-based BlockMix.
-#[derive(Clone)]
+#[cfg_attr(test, derive(Clone))]
 pub struct TraverseV {
     mode: Mode,
     buffer: Vec<u8>,
