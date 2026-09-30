@@ -83,7 +83,7 @@ pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
 
     // Apply permutations rowwise
     let mut q = r;
-    for chunk in q.as_chunks_mut::<16>().0 {
+    for chunk in q.chunks_exact_mut(16) {
         #[rustfmt::skip]
         permute!(
             chunk[0], chunk[1], chunk[2], chunk[3],
