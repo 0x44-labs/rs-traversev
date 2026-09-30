@@ -23,3 +23,6 @@ blake3 = "1.8.7"
 salsa20 = "0.11.0"
 subtle = "2.6.1"
 zeroize = { version = "1.9.0", optional = true }
+
+[dev-dependencies]
+argon2 = "0.6.0"

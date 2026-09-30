@@ -123,3 +123,83 @@ fn init(preimage: &[u8; 64], index: u32) -> [u8; BLOCK_SIZE] {
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CONTEXT: &str = "TRAVERSEV_TEST";
+    const SECRET: &[u8] = b"This is a secret.";
+
+    /// BLAKE3 XOF over flat bytes
+    fn xof<const N: usize>(bytes: &[u8]) -> [u8; N] {
+        let mut out = [0u8; N];
+        Hasher::new().update(bytes).finalize_xof().fill(&mut out);
+        out
+    }
+
+    /// H_0 preimage layout up to and including the context.
+    fn layout(mode: Mode) -> Vec<u8> {
+        let mut bytes = vec![mode as u8];
+        for cost in [19 * 1024u32, 3, 8, 20] {
+            bytes.extend(cost.to_le_bytes());
+        }
+        bytes.extend((CONTEXT.len() as u32).to_le_bytes());
+        bytes.extend(CONTEXT.as_bytes());
+        bytes
+    }
+
+    #[test]
+    fn preimage_without_secret() {
+        let expected = xof::<64>(&layout(Mode::Trustless));
+
+        let h_0 = preimage(Mode::Trustless, 19 * 1024, 3, 8, 20, CONTEXT, None);
+        assert_eq!(h_0, expected);
+    }
+
+    #[test]
+    fn preimage_with_secret() {
+        let mut bytes = layout(Mode::Permissioned);
+        bytes.extend((SECRET.len() as u32).to_le_bytes());
+        bytes.extend(SECRET);
+        let expected = xof::<64>(&bytes);
+
+        let h_0 = preimage(
+            Mode::Permissioned,
+            19 * 1024,
+            3,
+            8,
+            20,
+            CONTEXT,
+            Some(SECRET),
+        );
+        assert_eq!(h_0, expected);
+    }
+
+    #[test]
+    fn init_hashes_preimage_and_index() {
+        let h_0 = [0x00; 64];
+        let mut bytes = h_0.to_vec();
+        bytes.extend(0u32.to_le_bytes());
+
+        assert_eq!(init(&h_0, 0), xof::<BLOCK_SIZE>(&bytes));
+    }
+
+    #[test]
+    fn initial_blocks_produces_two_blocks() {
+        let h_0 = preimage(Mode::Trustless, 19 * 1024, 3, 8, 20, CONTEXT, None);
+        #[rustfmt::skip]
+        let (b0, b1) = initial_blocks(
+            Mode::Trustless,
+            19 * 1024,
+            3,
+            8,
+            20,
+            CONTEXT,
+            None
+        );
+
+        assert_eq!(b0, init(&h_0, 0));
+        assert_eq!(b1, init(&h_0, 1));
+    }
+}
