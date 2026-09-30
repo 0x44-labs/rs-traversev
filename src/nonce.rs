@@ -33,7 +33,7 @@ impl Nonce {
     fn validate(time: u64) -> Result<(), TraverseVErr> {
         UNIX_EPOCH
             .checked_add(Duration::from_secs(time))
-            .ok_or(TraverseVErr::InvalidNonce)?;
+            .ok_or(TraverseVErr::UnrepTime)?;
         Ok(())
     }
 
@@ -147,7 +147,7 @@ mod tests {
         let raw = Nonce::pack(u64::MAX, 42);
         let result = Nonce::try_from(raw);
 
-        assert_eq!(result.err(), Some(Error::InvalidNonce));
+        assert_eq!(result.err(), Some(Error::UnrepTime));
     }
 
     #[test]
