@@ -1,7 +1,7 @@
 use crate::errors::TraverseVErr;
 
-/// TraverseV parameters.
-#[derive(Copy, Clone)]
+/// TraverseV proof-of-work parameters.
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Params {
     m_cost: u32,
     t_cost: u32,
@@ -115,5 +115,85 @@ impl Params {
 impl Default for Params {
     fn default() -> Self {
         Params::DEFAULT
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type Error = TraverseVErr;
+
+    #[test]
+    fn accepts_minimum_values() {
+        let result = Params::new(2, 1, 1, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn accepts_maximum_values() {
+        let result = Params::new(u32::MAX, u32::MAX, u32::MAX, u8::MAX as u32);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn rejects_low_memory() {
+        let result = Params::new(1, 3, 8, 20);
+        assert_eq!(result.err(), Some(Error::MemoryTooSmall));
+    }
+
+    #[test]
+    fn rejects_zero_time_cost() {
+        let result = Params::new(19 * 1024, 0, 8, 20);
+        assert_eq!(result.err(), Some(Error::TimeTooSmall));
+    }
+
+    #[test]
+    fn rejects_zero_evaluation_rounds() {
+        let result = Params::new(19 * 1024, 3, 0, 20);
+        assert_eq!(result.err(), Some(Error::EvaluationTooFew));
+    }
+
+    #[test]
+    fn rejects_zero_difficulty() {
+        let result = Params::new(19 * 1024, 3, 8, 0);
+        assert_eq!(result.err(), Some(Error::DifficultyTooLow));
+    }
+
+    #[test]
+    fn rejects_difficulty_above_255() {
+        let result = Params::new(19 * 1024, 3, 8, 256);
+        assert_eq!(result.err(), Some(Error::DifficultyTooHigh));
+    }
+
+    #[test]
+    fn accessors_return_their_own_field() {
+        let params = Params::default();
+
+        assert_eq!(params.m_cost(), 19 * 1024);
+        assert_eq!(params.t_cost(), 3);
+        assert_eq!(params.e_cost(), 8);
+        assert_eq!(params.n_cost(), 20);
+    }
+
+    #[test]
+    fn accessors_are_const_evaluable() {
+        const M: u32 = Params::DEFAULT.m_cost();
+        const T: u32 = Params::DEFAULT.t_cost();
+        const E: u32 = Params::DEFAULT.e_cost();
+        const N: u32 = Params::DEFAULT.n_cost();
+        assert_eq!((M, T, E, N), (19 * 1024, 3, 8, 20));
+    }
+
+    #[test]
+    fn params_are_copy_and_clone() {
+        let original = Params::default();
+        let copied = original;
+        #[allow(clippy::clone_on_copy)]
+        let cloned = original.clone();
+
+        // Original is still usable after the copy.
+        assert_eq!(copied, original);
+        assert_eq!(cloned, original);
     }
 }

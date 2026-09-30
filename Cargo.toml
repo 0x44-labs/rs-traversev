@@ -1,6 +1,6 @@
 [package]
 name = "traversev"
-version = "0.1.0-alpha.2"
+version = "0.1.0"
 description = """
 A memory-hard proof-of-work scheme for trustless and permissioned proofs.
 """
@@ -13,8 +13,17 @@ keywords = ["pow", "proof-of-work", "memory-hard", "blake3", "salsa20"]
 categories = ["cryptography", "algorithms"]
 readme = "README.md"
 edition = "2024"
+rust-version = "1.85.1"
+
+[features]
+default = []
+zeroize = ["dep:zeroize", "blake3/zeroize", "salsa20/zeroize"]
 
 [dependencies]
 blake3 = "1.8.7"
 salsa20 = "0.11.0"
 subtle = "2.6.1"
+zeroize = { version = "1.9.0", optional = true }
+
+[dev-dependencies]
+argon2 = "0.6.0"
