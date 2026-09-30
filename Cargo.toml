@@ -13,6 +13,7 @@ keywords = ["pow", "proof-of-work", "memory-hard", "blake3", "salsa20"]
 categories = ["cryptography", "algorithms"]
 readme = "README.md"
 edition = "2024"
+rust-version = "1.85.1"
 
 [features]
 default = []

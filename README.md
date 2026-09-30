@@ -21,7 +21,7 @@ Mining searches over nonce values until one meets the target difficulty, while v
 
 ## Minimum Supported Rust Version
 
-Rust **1.88.0** or higher.
+Rust **1.85.1** or higher.
 
 ## License
 
