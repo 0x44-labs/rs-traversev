@@ -28,7 +28,7 @@
 //! use traversev::{Params, TraverseV};
 //!
 //! fn main() {
-//!     let params = Params::default();
+//!     let params = Params::new(12 * 1024, 3, 8, 12).unwrap();
 //!     let context = "65daysofstatic";
 //!
 //!     // Build a trustless instance
