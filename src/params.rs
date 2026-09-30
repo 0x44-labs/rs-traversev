@@ -189,6 +189,7 @@ mod tests {
     fn params_are_copy_and_clone() {
         let original = Params::default();
         let copied = original;
+        #[allow(clippy::clone_on_copy)]
         let cloned = original.clone();
 
         // Original is still usable after the copy.
