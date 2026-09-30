@@ -22,7 +22,7 @@ pub enum Mode {
     Permissioned = 0x50,
 }
 
-// Compile-time invariants. These fail the build, not a test run.
+// Compile-time invariants
 const _: () = {
     assert!(BLOCK_SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
     assert!(WORDS % 16 == 0); // rows of 16 words

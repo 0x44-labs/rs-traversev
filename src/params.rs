@@ -138,31 +138,31 @@ mod tests {
 
     #[test]
     fn rejects_low_memory() {
-        let result = Params::new(1, 1, 1, 1);
+        let result = Params::new(1, 3, 8, 20);
         assert_eq!(result.err(), Some(Error::MemoryTooSmall));
     }
 
     #[test]
     fn rejects_zero_time_cost() {
-        let result = Params::new(2, 0, 1, 1);
+        let result = Params::new(19 * 1024, 0, 8, 20);
         assert_eq!(result.err(), Some(Error::TimeTooSmall));
     }
 
     #[test]
     fn rejects_zero_evaluation_rounds() {
-        let result = Params::new(2, 1, 0, 1);
+        let result = Params::new(19 * 1024, 3, 0, 20);
         assert_eq!(result.err(), Some(Error::EvaluationTooFew));
     }
 
     #[test]
     fn rejects_zero_difficulty() {
-        let result = Params::new(2, 1, 1, 0);
+        let result = Params::new(19 * 1024, 3, 8, 0);
         assert_eq!(result.err(), Some(Error::DifficultyTooLow));
     }
 
     #[test]
     fn rejects_difficulty_above_255() {
-        let result = Params::new(2, 1, 1, 256);
+        let result = Params::new(19 * 1024, 3, 8, 256);
         assert_eq!(result.err(), Some(Error::DifficultyTooHigh));
     }
 
