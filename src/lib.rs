@@ -383,8 +383,8 @@ mod tests {
 
     /// Memory buffer constructed manually from `initial_blocks` and `fill`.
     fn expected_buffer(mode: Mode, secret: Option<&[u8]>) -> Vec<u8> {
-        let q = 8 as usize;
-        let t = 2 as usize;
+        let q = 8_usize;
+        let t = 2_usize;
 
         #[rustfmt::skip]
         let (b0, b1) = initial_blocks(
