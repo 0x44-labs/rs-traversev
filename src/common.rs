@@ -24,7 +24,7 @@ pub enum Mode {
 
 // Compile-time invariants
 const _: () = {
-    assert!(BLOCK_SIZE.is_multiple_of(64)); // 16 sub-blocks of 64 bytes
-    assert!(WORDS.is_multiple_of(16)); // rows of 16 words
+    assert!(BLOCK_SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
+    assert!(WORDS % 16 == 0); // rows of 16 words
     assert!(WORDS / 16 == 8); // eight rows / column pairs
 };
