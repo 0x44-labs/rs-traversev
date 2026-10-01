@@ -92,7 +92,7 @@ impl Params {
         self.t_cost
     }
 
-    /// Number of sequential dependency mixing rounds
+    /// Number of sequential dependency mixing rounds.
     pub const fn e_cost(&self) -> u32 {
         self.e_cost
     }

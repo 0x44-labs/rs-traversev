@@ -39,11 +39,11 @@ pub fn build_buffer(
     v
 }
 
-/// Fill every block of V after the initial two blocks (RFC 9106  Further Block
+/// Fill every block of V after the initial two blocks (RFC 9106 Further Block
 /// Generation and Further Passes), specialised for a single lane.
 ///
 /// The RFC computes this once per lane in parallel where lanes do not depend
-/// n each other's work. With a single lane, there is only one sequence of
+/// on each other's work. With a single lane, there is only one sequence of
 /// blocks to fill, so this is a single loop over the whole array.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
@@ -90,7 +90,7 @@ fn prev_index(pass: usize, j: usize, q: usize) -> usize {
 /// Index), specialised for a single lane.
 ///
 /// The RFC restricts W to a few segments to allow multiple lanes to compute in
-/// parllel without referencing each other's work. With a single lane there is
+/// parallel without referencing each other's work. With a single lane there is
 /// nothing to protect against, so the whole array is used instead.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.2
@@ -99,8 +99,8 @@ fn w_len(pass: usize, j: usize, q: usize) -> usize {
 }
 
 /// Reference block index. RFC 9106 pairs this reference block with the lane it
-/// belongs to; with a single lane this is alwys the same (see [Block::j1]), so
-/// only a block's position within the array is returned.
+/// belongs to; with a single lane this is always the same (see [Block::j1]),
+/// so only a block's position within the array is returned.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.1.1
 ///

@@ -84,7 +84,7 @@ mod tests {
     use super::*;
 
     /// RFC 7914 section 8, Salsa20/8 Core INPUT test vector.
-    /// 
+    ///
     /// https://www.rfc-editor.org/info/rfc7914/#section-8
     #[rustfmt::skip]
     const INPUT: [u8; 64] = [
@@ -99,7 +99,7 @@ mod tests {
     ];
 
     /// RFC 7914 section 8, Salsa20/8 Core OUTPUT test vector.
-    /// 
+    ///
     /// https://www.rfc-editor.org/info/rfc7914/#section-8
     #[rustfmt::skip]
     const OUTPUT: [u8; 64] = [

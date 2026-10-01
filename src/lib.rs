@@ -13,7 +13,7 @@
 //!
 //!     // Mine for a trustless proof over some input
 //!     let input = b"65 Doesn't Understand You";
-//!     let proof = miner.mine(input);
+//!     let proof: u128 = miner.mine(input, 0u128, 1);
 //!
 //!     // Any trustless instance with the same configuration can verify
 //!     let verifier = TraverseV::new_trustless(context, params);
@@ -24,7 +24,7 @@
 //!     let miner = TraverseV::new_permissioned(secret, context, params);
 //!
 //!     // A trustless instance cannot verify a permissioned proof
-//!     let proof = miner.mine(input);
+//!     let proof: u128 = miner.mine(input, 0u128, 1);
 //!     assert!(!verifier.verify(input, proof));
 //! }
 //! ```
@@ -195,8 +195,8 @@ impl TraverseV {
     /// to match the one the proof was mined with.
     ///
     /// A [trustless](Self::new_trustless) instance can only verify trustless
-    /// proofs, and a and a [permissioned](Self::new_permissioned) instance can
-    /// only verify permissioned proofs.
+    /// proofs, and a [permissioned](Self::new_permissioned) instance can only
+    /// verify permissioned proofs.
     pub fn verify<N: num_traits::ToBytes + Copy>(
         &self,
         input: &[u8],

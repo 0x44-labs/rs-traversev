@@ -140,7 +140,7 @@ mod tests {
     const CONTEXT: &str = "TRAVERSEV_TEST";
     const SECRET: &[u8] = b"This is a secret.";
 
-    /// BLAKE3 XOF over flat bytes
+    /// BLAKE3 XOF over flat bytes/
     fn xof<const N: usize>(bytes: &[u8]) -> [u8; N] {
         let mut out = [0u8; N];
         Hasher::new().update(bytes).finalize_xof().fill(&mut out);
