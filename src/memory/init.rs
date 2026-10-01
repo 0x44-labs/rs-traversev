@@ -45,7 +45,6 @@ pub(crate) fn initial_blocks(
     context: &str,
     secret: Option<&[u8]>,
 ) -> (Block, Block) {
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut h_0 = preimage(mode, params, context, secret);
 
     let b0 = init(&h_0, 0);
@@ -79,7 +78,6 @@ fn preimage(
     hasher.update(&params.n_cost().to_le_bytes());
 
     let context_bytes = context.as_bytes();
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut context_len = (context_bytes.len() as u32).to_le_bytes();
     hasher.update(&context_len);
     hasher.update(context_bytes);
@@ -88,7 +86,6 @@ fn preimage(
     context_len.zeroize();
 
     if let Some(secret) = secret {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut secret_len = (secret.len() as u32).to_le_bytes();
         hasher.update(&secret_len);
         hasher.update(secret);
@@ -114,7 +111,6 @@ fn preimage(
 ///
 /// Replaces RFC 9106's Function H' for Tag and Initial Block Computations.
 fn init(preimage: &[u8; 64], index: u32) -> Block {
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut input = [preimage.as_slice(), &index.to_le_bytes()].concat();
 
     let mut hasher = Hasher::new();

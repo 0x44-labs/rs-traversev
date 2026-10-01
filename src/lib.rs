@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
 #![doc = include_str!("../README.md")]
 //! ## Example
 //! ```
@@ -82,7 +83,6 @@ impl TraverseV {
     pub fn new_trustless(context: impl Into<String>, params: Params) -> Self {
         let context = context.into();
         let v = build_buffer(Mode::Trustless, None, &context, params);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut tag = context_tag(&context);
 
         let this = Self {
@@ -115,14 +115,11 @@ impl TraverseV {
         let context = context.into();
         let v =
             build_buffer(Mode::Permissioned, Some(secret), &context, params);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut tag = context_tag(&context);
 
         let mut hasher = Hasher::new_derive_key(&context);
         hasher.update(secret);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut key: [u8; 32] = hash.into();
 
         let this = Self {
@@ -160,9 +157,7 @@ impl TraverseV {
     {
         let mut hasher = Hasher::new();
         hasher.update(input);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut prefix: [u8; 32] = hash.into();
 
         #[cfg(feature = "zeroize")]
@@ -174,7 +169,6 @@ impl TraverseV {
         let proof = loop {
             let v: N = counter.into();
 
-            #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut candidate = self.evaluate(&prefix, v);
             let satisfied = self.check_n(&candidate);
 
@@ -210,12 +204,9 @@ impl TraverseV {
     ) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut prefix: [u8; 32] = hash.into();
 
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut candidate = self.evaluate(&prefix, proof);
         let satisfied = self.check_n(&candidate);
 
@@ -252,15 +243,12 @@ impl TraverseV {
         let mut bytes = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();
         reader.fill(&mut bytes);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut x = Block::from_bytes(&bytes);
 
         let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
         x = iter_mix(x, &self.buffer, q, k);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut x_bytes = x.to_bytes();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = blake3::hash(&x_bytes);
         let candidate: [u8; 32] = hash.into();
 
@@ -298,7 +286,6 @@ impl TraverseV {
 fn context_tag(context: &str) -> [u8; 32] {
     let mut hasher = Hasher::new();
     hasher.update(context.as_bytes());
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut hash = hasher.finalize();
     let tag: [u8; 32] = hash.into();
 

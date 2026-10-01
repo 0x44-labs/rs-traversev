@@ -57,7 +57,6 @@ fn salsa(t: &[u64; 8]) -> [u64; 8] {
 
     let mut out = [0u64; 8];
     for (word, chunk) in out.iter_mut().zip(block.chunks_exact(8)) {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut c: [u8; 8] = chunk
             .try_into()
             .expect("slicing at a fixed aligned offset always yields 8 bytes");

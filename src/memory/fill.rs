@@ -22,7 +22,6 @@ pub fn build_buffer(
     let q = params.m_cost() as usize;
     let t = params.t_cost() as usize;
 
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let (mut b0, mut b1) = initial_blocks(mode, params, context, secret);
 
     let mut v = vec![Block::from_words([0; WORDS]); q];
@@ -69,7 +68,6 @@ fn fill_block(v: &mut [Block], q: usize, pass: usize, j: usize) {
     let len = w_len(pass, j, q);
     let z = reference_index(prev, len, &v[prev]);
 
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut r = &v[prev] ^ &v[z];
     v[j].copy_from(&r);
     compress(&mut v[j], &r);

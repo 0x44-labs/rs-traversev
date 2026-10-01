@@ -19,7 +19,6 @@ impl Block {
         let mut words = [0u64; WORDS];
 
         for (word, chunk) in words.iter_mut().zip(bytes.chunks_exact(8)) {
-            #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut c: [u8; 8] = chunk.try_into().expect(
                 "slicing at a fixed aligned offset always yields 8 bytes",
             );
@@ -37,7 +36,6 @@ impl Block {
         let mut bytes = [0u8; BLOCK_SIZE];
 
         for (chunk, word) in bytes.chunks_exact_mut(8).zip(&self.0) {
-            #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut c = word.to_le_bytes();
             chunk.copy_from_slice(&c);
 
