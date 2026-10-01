@@ -2,7 +2,11 @@ use std::ops::{BitXor, BitXorAssign, Deref, DerefMut};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::common::{BLOCK_SIZE, WORDS};
+/// TraverseV block size.
+pub const BLOCK_SIZE: usize = 1024;
+
+/// Words per TraverseV block.
+pub const WORDS: usize = BLOCK_SIZE / 8;
 
 /// One block of memory as 128 little-endian `u64` words.
 #[derive(Clone, PartialEq, Eq)]

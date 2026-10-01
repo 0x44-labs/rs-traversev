@@ -1,5 +1,4 @@
-use crate::block::Block;
-use crate::common::WORDS;
+use crate::block::{Block, WORDS};
 use crate::mix::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop. The loop runs for `k` rounds
@@ -30,7 +29,7 @@ fn integerify(x: &Block) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::BLOCK_SIZE;
+    use crate::block::BLOCK_SIZE;
 
     use super::*;
 

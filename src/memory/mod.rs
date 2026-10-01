@@ -2,22 +2,17 @@ mod compress;
 mod fill;
 mod init;
 
-pub use fill::fill;
-pub use init::initial_blocks;
+pub(crate) use fill::fill;
+pub use init::Mode;
+pub(crate) use init::initial_blocks;
 
 #[cfg(test)]
 mod tests {
     use argon2::{Algorithm, Argon2, Block as ArgonBlock, Params, Version};
 
-    use crate::block::Block;
-    use crate::common::WORDS;
+    use crate::block::{Block, WORDS};
 
     use super::*;
-
-    /// Little-endian serialisation, independent of the module's converters.
-    fn to_bytes(words: &[u64]) -> Vec<u8> {
-        words.iter().flat_map(|word| word.to_le_bytes()).collect()
-    }
 
     /// A block of distinct, non-zero words.
     fn words(high: u64) -> Block {

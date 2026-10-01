@@ -2,8 +2,32 @@ use blake3::Hasher;
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::Block;
-use crate::common::{BLOCK_SIZE, Mode};
+use crate::block::{BLOCK_SIZE, Block, WORDS};
+
+/// Indicates whether a TraverseV instance produces trustless or permissioned
+/// proofs.
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum Mode {
+    /// Proofs are trustless.
+    ///
+    /// Verifiable by any instance sharing the same application context and
+    /// parameters.
+    Trustless = 0x54,
+
+    /// Proofs are permissioned.
+    ///
+    /// Verifiable only by instances sharing the same application context,
+    /// parameters, and shared secret.
+    Permissioned = 0x50,
+}
+
+// Compile-time invariants
+const _: () = {
+    assert!(BLOCK_SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
+    assert!(WORDS % 16 == 0); // rows of 16 words
+    assert!(WORDS / 16 == 8); // eight rows / column pairs
+};
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
 /// Blocks and Second Lane Blocks, but specialised for TraverseV lacking a

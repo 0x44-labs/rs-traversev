@@ -3,8 +3,7 @@ use salsa20::cipher::{StreamCipherCore, consts::U4};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::Block;
-use crate::common::{BLOCK_SIZE, WORDS};
+use crate::block::{BLOCK_SIZE, Block, WORDS};
 
 /// The scryptBlockMix Algorithm, specialised for `r = 8`, `128 * r = 1024`.
 /// This operates directly on one [BLOCK_SIZE]-sized block with no resizing,

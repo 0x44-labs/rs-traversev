@@ -33,7 +33,6 @@
 //! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
 //! TraverseV, and zeroises intermediate values.
 mod block;
-mod common;
 mod errors;
 mod memory;
 mod mix;
@@ -46,8 +45,9 @@ use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-pub use crate::common::{BLOCK_SIZE, Mode};
+use crate::block::{BLOCK_SIZE, Block, WORDS};
 pub use crate::errors::TraverseVErr;
+pub use crate::memory::Mode;
 use crate::memory::{fill, initial_blocks};
 pub use crate::params::Params;
 use crate::traverse::dependency_chain;
