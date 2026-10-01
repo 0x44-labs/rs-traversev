@@ -358,7 +358,6 @@ impl Drop for TraverseV {
 #[cfg(feature = "zeroize")]
 impl ZeroizeOnDrop for TraverseV {}
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -376,7 +375,7 @@ mod tests {
     }
 
     /// Memory buffer constructed manually from `initial_blocks` and `fill`.
-    fn expected_buffer(mode: Mode, secret: Option<&[u8]>) -> Vec<u8> {
+    fn expected_buffer(mode: Mode, secret: Option<&[u8]>) -> Vec<Block> {
         let q = 8_usize;
         let t = 2_usize;
 
@@ -391,10 +390,10 @@ mod tests {
             secret
         );
 
-        let mut v = vec![0u8; q * BLOCK_SIZE];
-        v[..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-        fill(&mut v, q, 2);
+        let mut v = vec![Block::from_words([0; WORDS]); q];
+        v[0].copy_from(&b0);
+        v[1].copy_from(&b1);
+        fill(&mut v, q, t);
 
         v
     }
@@ -434,7 +433,7 @@ mod tests {
         let miner = TraverseV::new_trustless(CONTEXT, params());
         let verifier = miner.clone();
 
-        let proof = miner.mine(INPUT);
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(verifier.verify(INPUT, proof));
     }
 
@@ -443,7 +442,7 @@ mod tests {
         let miner = TraverseV::new_permissioned(SECRET, CONTEXT, params());
         let verifier = miner.clone();
 
-        let proof = miner.mine(INPUT);
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(verifier.verify(INPUT, proof));
     }
 
@@ -453,7 +452,7 @@ mod tests {
         let miner = TraverseV::new_permissioned(SECRET, CONTEXT, params());
         let verifier = TraverseV::new_trustless(CONTEXT, params());
 
-        let proof = miner.mine(INPUT);
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(!verifier.verify(INPUT, proof));
     }
 
@@ -466,4 +465,3 @@ mod tests {
         assert!(!verifier.verify(INPUT, 0u128));
     }
 }
-*/

@@ -1,4 +1,4 @@
 mod blockmix;
 mod itermix;
 
-pub use itermix::iter_mix;
+pub(crate) use itermix::iter_mix;
