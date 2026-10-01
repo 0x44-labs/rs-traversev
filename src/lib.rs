@@ -32,6 +32,7 @@
 //!
 //! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
 //! TraverseV, and zeroises intermediate values.
+mod block;
 mod common;
 mod errors;
 mod memory;
