@@ -123,7 +123,7 @@ pub struct TraverseV<T, I> {
 
 impl<T, I> TraverseV<T, I>
 where
-    T: core::ops::AddAssign<usize> + TryInto<I> + Copy,
+    T: core::ops::AddAssign<usize> + Into<I> + Copy,
     I: num_traits::ToBytes + Copy,
 {
     /// Build a new trustless `TraverseV` instance.
@@ -209,11 +209,7 @@ where
     /// A [trustless](Self::new_trustless) instance mines for a trustless
     /// proof, and a [permissioned](Self::new_permissioned) instance mines for
     /// a permissioned proof.
-    pub fn mine(
-        &self,
-        input: &[u8],
-        mut counter: T,
-    ) -> Result<I, TraverseVErr> {
+    pub fn mine(&self, input: &[u8], mut counter: T) -> I {
         let mut hasher = Hasher::new();
         hasher.update(input);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
@@ -228,9 +224,7 @@ where
         }
 
         let proof = loop {
-            let v: I = counter
-                .try_into()
-                .map_err(|_| TraverseVErr::InvalidCounter)?;
+            let v: I = counter.into();
 
             #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut candidate = self.evaluate(&prefix, v);
@@ -250,7 +244,7 @@ where
         #[cfg(feature = "zeroize")]
         prefix.zeroize();
 
-        Ok(proof)
+        proof
     }
 
     /// Verify that a proof satisfies this instance's difficulty.
