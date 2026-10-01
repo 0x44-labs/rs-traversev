@@ -36,7 +36,6 @@ mod block;
 mod errors;
 mod memory;
 mod mix;
-mod nonce;
 mod params;
 
 use blake3::Hasher;

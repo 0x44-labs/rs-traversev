@@ -15,10 +15,6 @@ pub enum TraverseVErr {
 
     /// Difficulty is above the maximum of (2^8) - 1 leading zero bits.
     DifficultyTooHigh,
-
-    /// A nonce's timestamp is outside the bounds to be represented as a
-    /// [SystemTime](std::time::SystemTime).
-    UnrepTime,
 }
 
 impl core::fmt::Display for TraverseVErr {
@@ -29,7 +25,6 @@ impl core::fmt::Display for TraverseVErr {
             Self::EvaluationTooFew => "evaluation rounds is too few",
             Self::DifficultyTooLow => "difficulty is too low",
             Self::DifficultyTooHigh => "difficulty is too high",
-            Self::UnrepTime => "timestamp unrepresentable as SystemTime",
         };
         f.write_str(msg)
     }
@@ -37,7 +32,6 @@ impl core::fmt::Display for TraverseVErr {
 
 impl std::error::Error for TraverseVErr {}
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,7 +46,6 @@ mod tests {
             Error::EvaluationTooFew => "evaluation rounds is too few",
             Error::DifficultyTooLow => "difficulty is too low",
             Error::DifficultyTooHigh => "difficulty is too high",
-            Error::UnrepTime => "timestamp unrepresentable as SystemTime",
         }
     }
 
@@ -63,7 +56,6 @@ mod tests {
             (Error::EvaluationTooFew, "EvaluationTooFew"),
             (Error::DifficultyTooLow, "DifficultyTooLow"),
             (Error::DifficultyTooHigh, "DifficultyTooHigh"),
-            (Error::UnrepTime, "UnrepTime"),
         ]
     }
 
@@ -101,4 +93,3 @@ mod tests {
         assert_eq!(boxed.to_string(), "difficulty is too high");
     }
 }
-*/
