@@ -112,19 +112,20 @@ macro_rules! context_tag {
 /// scryptROMix algorithm's second loop, mixing memory blocks into the
 /// computation via Salsa20/8-based BlockMix.
 #[cfg_attr(test, derive(Clone))]
-pub struct TraverseV<T, I> {
+pub struct TraverseV<T, N, I> {
     mode: Mode,
     buffer: Vec<u8>,
     tag: [u8; 32],
     key: Option<[u8; 32]>,
     params: Params,
-    phantom: PhantomData<fn() -> (T, I)>,
+    phantom: PhantomData<fn() -> (T, N, I)>,
 }
 
-impl<T, I> TraverseV<T, I>
+impl<T, N, I> TraverseV<T, N, I>
 where
-    T: core::ops::AddAssign<usize> + Into<I> + Copy,
-    I: num_traits::ToBytes + Copy,
+    T: core::ops::AddAssign<I> + Into<N> + Copy,
+    N: num_traits::ToBytes + Copy,
+    I: Copy,
 {
     /// Build a new trustless `TraverseV` instance.
     ///
@@ -209,7 +210,7 @@ where
     /// A [trustless](Self::new_trustless) instance mines for a trustless
     /// proof, and a [permissioned](Self::new_permissioned) instance mines for
     /// a permissioned proof.
-    pub fn mine(&self, input: &[u8], mut counter: T) -> I {
+    pub fn mine(&self, input: &[u8], mut counter: T, increment: I) -> N {
         let mut hasher = Hasher::new();
         hasher.update(input);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
@@ -224,7 +225,7 @@ where
         }
 
         let proof = loop {
-            let v: I = counter.into();
+            let v: N = counter.into();
 
             #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut candidate = self.evaluate(&prefix, v);
@@ -238,7 +239,7 @@ where
                 break v;
             }
 
-            counter += 1
+            counter += increment
         };
 
         #[cfg(feature = "zeroize")]
@@ -255,7 +256,7 @@ where
     /// A [trustless](Self::new_trustless) instance can only verify trustless
     /// proofs, and a and a [permissioned](Self::new_permissioned) instance can
     /// only verify permissioned proofs.
-    pub fn verify(&self, input: &[u8], proof: I) -> bool {
+    pub fn verify(&self, input: &[u8], proof: N) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
@@ -283,7 +284,7 @@ where
         self.mode
     }
 
-    fn evaluate(&self, prefix: &[u8; 32], v: I) -> [u8; 32] {
+    fn evaluate(&self, prefix: &[u8; 32], v: N) -> [u8; 32] {
         let mut hasher = if let Some(key) = &self.key {
             Hasher::new_keyed(key)
         } else {
