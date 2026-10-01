@@ -1,18 +1,13 @@
 use crate::block::Block;
 use crate::common::WORDS;
-use crate::traverse::blockmix::block_mix;
+use crate::mix::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop. The loop runs for `k` rounds
 /// and is independent of q, compared to RFC 7914 sizing both the array and
 /// iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub fn dependency_chain(
-    mut x: Block,
-    v: &[Block],
-    q: usize,
-    k: usize,
-) -> Block {
+pub fn iter_mix(mut x: Block, v: &[Block], q: usize, k: usize) -> Block {
     for _ in 0..k {
         let j = (integerify(&x) % q as u64) as usize;
 
@@ -60,7 +55,7 @@ mod tests {
         let mut t = x.clone();
         t ^= &v[3];
 
-        assert_eq!(dependency_chain(x, &v, 7, 1), block_mix(&t));
+        assert_eq!(iter_mix(x, &v, 7, 1), block_mix(&t));
     }
 
     #[test]
@@ -70,11 +65,8 @@ mod tests {
         bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
         let x = Block::from_bytes(&bytes);
 
-        let once = dependency_chain(x.clone(), &v, 7, 1);
+        let once = iter_mix(x.clone(), &v, 7, 1);
 
-        assert_eq!(
-            dependency_chain(x, &v, 7, 2),
-            dependency_chain(once, &v, 7, 1)
-        );
+        assert_eq!(iter_mix(x, &v, 7, 2), iter_mix(once, &v, 7, 1));
     }
 }

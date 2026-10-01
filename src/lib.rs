@@ -36,9 +36,9 @@ mod block;
 mod common;
 mod errors;
 mod memory;
+mod mix;
 mod nonce;
 mod params;
-mod traverse;
 
 use blake3::Hasher;
 use std::marker::PhantomData;
