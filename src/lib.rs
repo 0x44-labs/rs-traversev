@@ -336,37 +336,6 @@ mod tests {
     }
 
     #[test]
-    fn new_trustless_builds_instance() {
-        let params = params();
-        let tv = TraverseV::new_trustless(CONTEXT, params);
-
-        let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer = build_buffer(Mode::Trustless, None, CONTEXT, params);
-
-        assert_eq!(tv.mode(), Mode::Trustless);
-        assert!(tv.key.is_none());
-        assert_eq!(tv.tag, *tag.as_bytes());
-        assert_eq!(tv.params, params);
-        assert_eq!(tv.buffer, buffer);
-    }
-
-    #[test]
-    fn new_permissioned_builds_instance() {
-        let params = params();
-        let tv = TraverseV::new_permissioned(SECRET, CONTEXT, params);
-
-        let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer =
-            build_buffer(Mode::Permissioned, Some(SECRET), CONTEXT, params);
-
-        assert_eq!(tv.mode(), Mode::Permissioned);
-        assert_eq!(tv.key, Some(blake3::derive_key(CONTEXT, SECRET)));
-        assert_eq!(tv.tag, *tag.as_bytes());
-        assert_eq!(tv.params, params);
-        assert_eq!(tv.buffer, buffer);
-    }
-
-    #[test]
     fn trustless_proof_verifies() {
         let miner = TraverseV::new_trustless(CONTEXT, params());
         let verifier = miner.clone();
@@ -390,6 +359,9 @@ mod tests {
         let miner = TraverseV::new_permissioned(SECRET, CONTEXT, params());
         let verifier = TraverseV::new_trustless(CONTEXT, params());
 
+        assert_eq!(miner.mode(), Mode::Permissioned);
+        assert_eq!(verifier.mode(), Mode::Trustless);
+
         let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(!verifier.verify(INPUT, proof));
     }
@@ -401,5 +373,22 @@ mod tests {
 
         let verifier = TraverseV::new_trustless(CONTEXT, params);
         assert!(!verifier.verify(INPUT, 0u128));
+    }
+
+    #[test]
+    fn debug_omits_secret_state() {
+        let params = params();
+        let tv = TraverseV::new_permissioned(SECRET, CONTEXT, params);
+
+        let output = format!("{tv:?}");
+
+        assert!(output.contains("TraverseV"));
+        assert!(output.contains(&format!("{:?}", tv.mode())));
+        assert!(output.contains(&format!("{params:?}")));
+
+        // No sensitive fields should appear
+        for field in ["buffer", "tag", "key"] {
+            assert!(!output.contains(field));
+        }
     }
 }

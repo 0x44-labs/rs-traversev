@@ -1,19 +1,19 @@
 /// Errors returned by TraverseV.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TraverseVErr {
-    /// Memory cost is below the minimum of 2 blocks.
+    /// Memory cost is too small.
     MemoryTooSmall,
 
-    /// Time cost is below the minimum of 1 memory fill iteration.
+    /// Time cost is too small.
     TimeTooSmall,
 
-    /// Number of evaluation mixing rounds is below the minimum of 1.
+    /// Evaluation rounds are too few.
     EvaluationTooFew,
 
-    /// Difficulty is below the minimum of 1 leading zero bit.
+    /// Difficulty is too low.
     DifficultyTooLow,
 
-    /// Difficulty is above the maximum of (2^8) - 1 leading zero bits.
+    /// Difficulty is too high.
     DifficultyTooHigh,
 }
 
@@ -22,7 +22,7 @@ impl core::fmt::Display for TraverseVErr {
         let msg = match self {
             Self::MemoryTooSmall => "memory cost is too small",
             Self::TimeTooSmall => "time cost is too small",
-            Self::EvaluationTooFew => "evaluation rounds is too few",
+            Self::EvaluationTooFew => "evaluation rounds are too few",
             Self::DifficultyTooLow => "difficulty is too low",
             Self::DifficultyTooHigh => "difficulty is too high",
         };
@@ -43,7 +43,7 @@ mod tests {
         match err {
             Error::MemoryTooSmall => "memory cost is too small",
             Error::TimeTooSmall => "time cost is too small",
-            Error::EvaluationTooFew => "evaluation rounds is too few",
+            Error::EvaluationTooFew => "evaluation rounds are too few",
             Error::DifficultyTooLow => "difficulty is too low",
             Error::DifficultyTooHigh => "difficulty is too high",
         }
