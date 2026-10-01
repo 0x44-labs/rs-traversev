@@ -40,7 +40,6 @@ mod nonce;
 mod params;
 
 use blake3::Hasher;
-use std::marker::PhantomData;
 use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -49,15 +48,14 @@ use crate::block::{BLOCK_SIZE, Block, WORDS};
 pub use crate::errors::TraverseVErr;
 pub use crate::memory::Mode;
 use crate::memory::{fill, initial_blocks};
+use crate::mix::iter_mix;
 pub use crate::params::Params;
-use crate::traverse::dependency_chain;
 
 macro_rules! fill_memory {
     ($mode: expr, $secret:expr, $context:expr, $params:expr) => {{
         let q = $params.m_cost() as usize;
         let t = $params.t_cost() as usize;
 
-        let mut v = vec![0u8; q * BLOCK_SIZE];
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let (mut b0, mut b1) = initial_blocks(
             $mode,
@@ -68,8 +66,10 @@ macro_rules! fill_memory {
             $context,
             $secret,
         );
-        v[0..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
+
+        let mut v = vec![Block::from_words([0; WORDS]); q];
+        v[0].copy_from(&b0);
+        v[1].copy_from(&b1);
 
         #[cfg(feature = "zeroize")]
         {
@@ -113,21 +113,15 @@ macro_rules! context_tag {
 /// scryptROMix algorithm's second loop, mixing memory blocks into the
 /// computation via Salsa20/8-based BlockMix.
 #[cfg_attr(test, derive(Clone))]
-pub struct TraverseV<T, N, I> {
+pub struct TraverseV {
     mode: Mode,
-    buffer: Vec<u8>,
+    buffer: Vec<Block>,
     tag: [u8; 32],
     key: Option<[u8; 32]>,
     params: Params,
-    phantom: PhantomData<fn() -> (T, N, I)>,
 }
 
-impl<T, N, I> TraverseV<T, N, I>
-where
-    T: core::ops::AddAssign<I> + Into<N> + Copy,
-    N: num_traits::ToBytes + Copy,
-    I: Copy,
-{
+impl TraverseV {
     /// Build a new trustless `TraverseV` instance.
     ///
     /// Creates and fills a memory buffer, and stores this instance's
@@ -148,7 +142,6 @@ where
             tag,
             key: None,
             params,
-            phantom: PhantomData,
         };
 
         #[cfg(feature = "zeroize")]
@@ -189,7 +182,6 @@ where
             tag,
             key: Some(key),
             params,
-            phantom: PhantomData,
         };
 
         #[cfg(feature = "zeroize")]
@@ -211,7 +203,12 @@ where
     /// A [trustless](Self::new_trustless) instance mines for a trustless
     /// proof, and a [permissioned](Self::new_permissioned) instance mines for
     /// a permissioned proof.
-    pub fn mine(&self, input: &[u8], mut counter: T, increment: I) -> N {
+    pub fn mine<T, N, I>(&self, input: &[u8], mut counter: T, increment: I) -> N
+    where
+        T: core::ops::AddAssign<I> + Into<N> + Copy,
+        N: num_traits::ToBytes + Copy,
+        I: Copy,
+    {
         let mut hasher = Hasher::new();
         hasher.update(input);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
@@ -257,7 +254,11 @@ where
     /// A [trustless](Self::new_trustless) instance can only verify trustless
     /// proofs, and a and a [permissioned](Self::new_permissioned) instance can
     /// only verify permissioned proofs.
-    pub fn verify(&self, input: &[u8], proof: N) -> bool {
+    pub fn verify<N: num_traits::ToBytes + Copy>(
+        &self,
+        input: &[u8],
+        proof: N,
+    ) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
@@ -285,7 +286,11 @@ where
         self.mode
     }
 
-    fn evaluate(&self, prefix: &[u8; 32], v: N) -> [u8; 32] {
+    fn evaluate<N: num_traits::ToBytes + Copy>(
+        &self,
+        prefix: &[u8; 32],
+        v: N,
+    ) -> [u8; 32] {
         let mut hasher = if let Some(key) = &self.key {
             Hasher::new_keyed(key)
         } else {
@@ -295,15 +300,19 @@ where
         hasher.update(&v.to_le_bytes().as_ref());
         hasher.update(&self.tag);
 
-        let mut x = [0u8; BLOCK_SIZE];
+        let mut bytes = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();
-        reader.fill(&mut x);
+        reader.fill(&mut bytes);
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut x = Block::from_bytes(&bytes);
 
         let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
-        x = dependency_chain(x, &self.buffer, q, k);
+        x = iter_mix(x, &self.buffer, q, k);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut hash = blake3::hash(&x);
+        let mut x_bytes = x.to_bytes();
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut hash = blake3::hash(&x_bytes);
         let candidate: [u8; 32] = hash.into();
 
         #[cfg(feature = "zeroize")]
@@ -311,6 +320,7 @@ where
             hasher.zeroize();
             reader.zeroize();
             x.zeroize();
+            x_bytes.zeroize();
             hash.zeroize();
         }
 
