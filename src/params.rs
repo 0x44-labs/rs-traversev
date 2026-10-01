@@ -15,24 +15,15 @@ impl Params {
 
     const MIN_M: u32 = 2;
 
-    #[allow(dead_code)]
-    const MAX_M: u32 = u32::MAX;
-
     /// Default time cost (number of memory fill iterations) `t`.
     pub const DEFAULT_T: u32 = 3;
 
     const MIN_T: u32 = 1;
 
-    #[allow(dead_code)]
-    const MAX_T: u32 = u32::MAX;
-
     /// Default number of evaluation mixing rounds `e`.
     pub const DEFAULT_E: u32 = 8;
 
     const MIN_E: u32 = 1;
-
-    #[allow(dead_code)]
-    const MAX_D: u32 = u32::MAX;
 
     /// Default proof-of-work difficulty `n`.
     pub const DEFAULT_N: u32 = 20;
