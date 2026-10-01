@@ -130,3 +130,83 @@ fn select(w_len: usize, j1: u32) -> usize {
 fn w_index(prev: usize, pos: usize) -> usize {
     if pos < prev { pos } else { pos + 1 }
 }
+
+#[cfg(test)]
+mod tests {
+    use argon2::{
+        Algorithm, Argon2, Block as ArgonBlock, Params as ArgonParams, Version,
+    };
+
+    use crate::block::{Block, WORDS};
+    use crate::params::Params;
+
+    use super::*;
+
+    const CONTEXT: &str = "TRAVERSEV_TEST";
+    const SECRET: &[u8] = b"This is a secret.";
+
+    #[test]
+    fn build_runs_passes_over_seeded_memory() {
+        let g = |x: &Block, y: &Block| -> Block {
+            let r = x ^ y;
+            let mut q = r.clone();
+            compress(&mut q, &r);
+            q
+        };
+
+        for (mode, secret) in
+            [(Mode::Trustless, None), (Mode::Permissioned, Some(SECRET))]
+        {
+            // One pass: the initial blocks are untouched and every later block
+            // is the compression of its predecessor with some earlier block.
+            let params =
+                Params::new(8, 1, 1, 1).expect("test parameters are valid");
+            let (b0, b1) = initial_blocks(mode, params, CONTEXT, secret);
+            let v = build_buffer(mode, secret, CONTEXT, params);
+
+            assert_eq!(v.len(), 8);
+            assert_eq!(v[0], b0);
+            assert_eq!(v[1], b1);
+            for j in 2..v.len() {
+                assert!((0..j - 1).any(|i| g(&v[j - 1], &v[i]) == v[j]));
+            }
+
+            // Two passes: the second pass overwrites both seeds.
+            let params =
+                Params::new(8, 2, 1, 1).expect("test parameters are valid");
+            let (b0, b1) = initial_blocks(mode, params, CONTEXT, secret);
+            let v = build_buffer(mode, secret, CONTEXT, params);
+
+            assert_ne!(v[0], b0);
+            assert_ne!(v[1], b1);
+        }
+    }
+
+    #[test]
+    fn fill_matches_argon2d_first_pass() {
+        // With one lane and one pass, Argon2d picks reference blocks exactly
+        // as the first pass of `fill` does, so the memory must be identical.
+        let params = ArgonParams::new(8, 1, 1, None).unwrap();
+        let argon2 = Argon2::new(Algorithm::Argon2d, Version::V0x13, params);
+        let mut blocks = vec![ArgonBlock::default(); 8];
+        argon2
+            .fill_memory(b"password", b"some_salt", &mut blocks)
+            .unwrap();
+
+        let expected: Vec<Block> = blocks
+            .iter()
+            .map(|block| {
+                let words: &[u64] = block.as_ref();
+                Block::from_words(words.try_into().unwrap())
+            })
+            .collect();
+
+        // Start from Argon2's first two blocks and let `fill` do the rest.
+        let mut v = vec![Block::from_words([0; WORDS]); 8];
+        v[0].copy_from(&expected[0]);
+        v[1].copy_from(&expected[1]);
+        fill(&mut v, 8, 1);
+
+        assert_eq!(v, expected);
+    }
+}
