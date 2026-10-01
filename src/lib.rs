@@ -50,24 +50,6 @@ use crate::memory::build_buffer;
 use crate::mix::iter_mix;
 pub use crate::params::Params;
 
-macro_rules! context_tag {
-    ($context:expr) => {{
-        let mut hasher = Hasher::new();
-        hasher.update($context.as_bytes());
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut hash = hasher.finalize();
-        let tag: [u8; 32] = hash.into();
-
-        #[cfg(feature = "zeroize")]
-        {
-            hasher.zeroize();
-            hash.zeroize();
-        }
-
-        tag
-    }};
-}
-
 /// TraverseV proof-of-work instance.
 ///
 /// Construction fills a memory buffer using a fill adapted from Argon2d. Each
@@ -101,7 +83,7 @@ impl TraverseV {
         let context = context.into();
         let v = build_buffer(Mode::Trustless, None, &context, params);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut tag = context_tag!(context);
+        let mut tag = context_tag(&context);
 
         let this = Self {
             mode: Mode::Trustless,
@@ -134,7 +116,7 @@ impl TraverseV {
         let v =
             build_buffer(Mode::Permissioned, Some(secret), &context, params);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut tag = context_tag!(context);
+        let mut tag = context_tag(&context);
 
         let mut hasher = Hasher::new_derive_key(&context);
         hasher.update(secret);
@@ -311,6 +293,22 @@ impl TraverseV {
 
         satisfied
     }
+}
+
+fn context_tag(context: &str) -> [u8; 32] {
+    let mut hasher = Hasher::new();
+    hasher.update(context.as_bytes());
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let mut hash = hasher.finalize();
+    let tag: [u8; 32] = hash.into();
+
+    #[cfg(feature = "zeroize")]
+    {
+        hasher.zeroize();
+        hash.zeroize();
+    }
+
+    tag
 }
 
 impl core::fmt::Debug for TraverseV {
