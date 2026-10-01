@@ -1,7 +1,7 @@
 use crate::errors::TraverseVErr;
 
 /// TraverseV proof-of-work parameters.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Params {
     m_cost: u32,
     t_cost: u32,

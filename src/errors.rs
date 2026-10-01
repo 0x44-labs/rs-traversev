@@ -1,5 +1,5 @@
 /// Errors returned by TraverseV.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TraverseVErr {
     /// Memory cost is below the minimum of 2 blocks.
     MemoryTooSmall,

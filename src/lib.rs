@@ -345,6 +345,15 @@ impl TraverseV {
     }
 }
 
+impl core::fmt::Debug for TraverseV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TraverseV")
+            .field("mode", &self.mode)
+            .field("params", &self.params)
+            .finish_non_exhaustive()
+    }
+}
+
 #[cfg(feature = "zeroize")]
 impl Drop for TraverseV {
     fn drop(&mut self) {
@@ -405,7 +414,7 @@ mod tests {
         let tag = blake3::hash(CONTEXT.as_bytes());
         let buffer = expected_buffer(Mode::Trustless, None);
 
-        assert_eq!(tv.mode() as u8, Mode::Trustless as u8);
+        assert_eq!(tv.mode(), Mode::Trustless);
         assert!(tv.key.is_none());
         assert_eq!(tv.tag, *tag.as_bytes());
         assert_eq!(tv.params, params);
@@ -420,7 +429,7 @@ mod tests {
         let tag = blake3::hash(CONTEXT.as_bytes());
         let buffer = expected_buffer(Mode::Permissioned, Some(SECRET));
 
-        assert_eq!(tv.mode() as u8, Mode::Permissioned as u8);
+        assert_eq!(tv.mode(), Mode::Permissioned);
         assert_eq!(tv.key, Some(blake3::derive_key(CONTEXT, SECRET)));
         assert_eq!(tv.tag, *tag.as_bytes());
         assert_eq!(tv.params, params);

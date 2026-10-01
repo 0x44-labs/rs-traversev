@@ -6,7 +6,7 @@ use crate::block::{BLOCK_SIZE, Block, WORDS};
 
 /// Indicates whether a TraverseV instance produces trustless or permissioned
 /// proofs.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Mode {
     /// Proofs are trustless.
