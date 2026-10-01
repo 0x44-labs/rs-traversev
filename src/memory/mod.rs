@@ -2,9 +2,8 @@ mod compress;
 mod fill;
 mod init;
 
-pub(crate) use fill::fill;
+pub use fill::build_buffer;
 pub use init::Mode;
-pub(crate) use init::initial_blocks;
 
 #[cfg(test)]
 mod tests {

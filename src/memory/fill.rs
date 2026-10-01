@@ -1,8 +1,44 @@
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::Block;
-use crate::memory::compress::compress;
+use crate::block::{Block, WORDS};
+use crate::memory::{
+    compress::compress,
+    init::{Mode, initial_blocks},
+};
+use crate::params::Params;
+
+/// Allocate the memory buffer V of `m_cost` blocks and fill it.
+///
+/// The starting blocks B0 and B1 are derived from the mode, parameters,
+/// context, and optional secret. The starting blocks placed at the start of V,
+/// and the remaining blocks are computed over `t_cost` passes by [fill].
+pub fn build_buffer(
+    mode: Mode,
+    secret: Option<&[u8]>,
+    context: &str,
+    params: Params,
+) -> Vec<Block> {
+    let q = params.m_cost() as usize;
+    let t = params.t_cost() as usize;
+
+    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+    let (mut b0, mut b1) = initial_blocks(mode, params, context, secret);
+
+    let mut v = vec![Block::from_words([0; WORDS]); q];
+    v[0].copy_from(&b0);
+    v[1].copy_from(&b1);
+
+    #[cfg(feature = "zeroize")]
+    {
+        b0.zeroize();
+        b1.zeroize();
+    }
+
+    fill(&mut v, q, t);
+
+    v
+}
 
 /// Fill every block of V after the initial two blocks (RFC 9106  Further Block
 /// Generation and Further Passes), specialised for a single lane.
@@ -12,7 +48,7 @@ use crate::memory::compress::compress;
 /// blocks to fill, so this is a single loop over the whole array.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-pub fn fill(v: &mut [Block], q: usize, t: usize) {
+fn fill(v: &mut [Block], q: usize, t: usize) {
     for pass in 0..t {
         let start = if pass == 0 { 2 } else { 0 };
         for j in start..q {

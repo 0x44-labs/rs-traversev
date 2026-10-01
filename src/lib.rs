@@ -43,44 +43,12 @@ use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::block::{BLOCK_SIZE, Block, WORDS};
+use crate::block::{BLOCK_SIZE, Block};
 pub use crate::errors::TraverseVErr;
 pub use crate::memory::Mode;
-use crate::memory::{fill, initial_blocks};
+use crate::memory::build_buffer;
 use crate::mix::iter_mix;
 pub use crate::params::Params;
-
-macro_rules! fill_memory {
-    ($mode: expr, $secret:expr, $context:expr, $params:expr) => {{
-        let q = $params.m_cost() as usize;
-        let t = $params.t_cost() as usize;
-
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let (mut b0, mut b1) = initial_blocks(
-            $mode,
-            $params.m_cost(),
-            $params.t_cost(),
-            $params.e_cost(),
-            $params.n_cost(),
-            $context,
-            $secret,
-        );
-
-        let mut v = vec![Block::from_words([0; WORDS]); q];
-        v[0].copy_from(&b0);
-        v[1].copy_from(&b1);
-
-        #[cfg(feature = "zeroize")]
-        {
-            b0.zeroize();
-            b1.zeroize();
-        }
-
-        fill(&mut v, q, t);
-
-        v
-    }};
-}
 
 macro_rules! context_tag {
     ($context:expr) => {{
@@ -131,7 +99,7 @@ impl TraverseV {
     /// parameters.
     pub fn new_trustless(context: impl Into<String>, params: Params) -> Self {
         let context = context.into();
-        let v = fill_memory!(Mode::Trustless, None, &context, params);
+        let v = build_buffer(Mode::Trustless, None, &context, params);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut tag = context_tag!(context);
 
@@ -164,7 +132,7 @@ impl TraverseV {
     ) -> Self {
         let context = context.into();
         let v =
-            fill_memory!(Mode::Permissioned, Some(secret), &context, params);
+            build_buffer(Mode::Permissioned, Some(secret), &context, params);
         #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut tag = context_tag!(context);
 
@@ -382,37 +350,13 @@ mod tests {
         Params::new(8, 2, 2, 12).expect("test parameters are valid")
     }
 
-    /// Memory buffer constructed manually from `initial_blocks` and `fill`.
-    fn expected_buffer(mode: Mode, secret: Option<&[u8]>) -> Vec<Block> {
-        let q = 8_usize;
-        let t = 2_usize;
-
-        #[rustfmt::skip]
-        let (b0, b1) = initial_blocks(
-            mode,
-            q as u32,
-            t as u32,
-            2,
-            12,
-            CONTEXT,
-            secret
-        );
-
-        let mut v = vec![Block::from_words([0; WORDS]); q];
-        v[0].copy_from(&b0);
-        v[1].copy_from(&b1);
-        fill(&mut v, q, t);
-
-        v
-    }
-
     #[test]
     fn new_trustless_builds_instance() {
         let params = params();
         let tv = TraverseV::new_trustless(CONTEXT, params);
 
         let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer = expected_buffer(Mode::Trustless, None);
+        let buffer = build_buffer(Mode::Trustless, None, CONTEXT, params);
 
         assert_eq!(tv.mode(), Mode::Trustless);
         assert!(tv.key.is_none());
@@ -427,7 +371,8 @@ mod tests {
         let tv = TraverseV::new_permissioned(SECRET, CONTEXT, params);
 
         let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer = expected_buffer(Mode::Permissioned, Some(SECRET));
+        let buffer =
+            build_buffer(Mode::Permissioned, Some(SECRET), CONTEXT, params);
 
         assert_eq!(tv.mode(), Mode::Permissioned);
         assert_eq!(tv.key, Some(blake3::derive_key(CONTEXT, SECRET)));
