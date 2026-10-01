@@ -3,53 +3,41 @@ use salsa20::cipher::{StreamCipherCore, consts::U4};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::common::BLOCK_SIZE;
+use crate::block::Block;
+use crate::common::{BLOCK_SIZE, WORDS};
 
 /// The scryptBlockMix Algorithm, specialised for `r = 8`, `128 * r = 1024`.
 /// This operates directly on one [BLOCK_SIZE]-sized block with no resizing,
-/// with 16 sub-blocks of 64 octets each fixed at compile time.
+/// with 16 sub-blocks of 8 words each fixed at compile time.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-4
-pub(crate) fn block_mix(b: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
+pub(crate) fn block_mix(b: &Block) -> Block {
     const SUB_BLOCKS: usize = BLOCK_SIZE / 64; // 2r = 16, r = 8
+    const SUB_WORDS: usize = 8;
 
-    let mut sub = [[0u8; 64]; SUB_BLOCKS];
+    let mut x: [u64; SUB_WORDS] = b[(SUB_BLOCKS - 1) * SUB_WORDS..]
+        .try_into()
+        .expect("slicing at a fixed aligned offset always yields 8 words");
+
+    let mut out = Block::from_words([0; WORDS]);
     for i in 0..SUB_BLOCKS {
-        sub[i].copy_from_slice(&b[i * 64..(i + 1) * 64]);
-    }
-
-    let mut x = sub[SUB_BLOCKS - 1];
-
-    let mut y = [[0u8; 64]; SUB_BLOCKS];
-    for i in 0..SUB_BLOCKS {
-        let mut t = [0u8; 64];
-        for k in 0..64 {
-            t[k] = x[k] ^ sub[i][k];
+        for (xk, bk) in x.iter_mut().zip(&b[i * SUB_WORDS..(i + 1) * SUB_WORDS])
+        {
+            *xk ^= *bk;
         }
-        x = salsa(&t);
-        y[i] = x;
+        x = salsa(&x);
 
-        #[cfg(feature = "zeroize")]
-        t.zeroize();
-    }
-
-    let mut out = [0u8; BLOCK_SIZE];
-    let mut pos = 0;
-    for i in (0..SUB_BLOCKS).step_by(2) {
-        out[pos * 64..(pos + 1) * 64].copy_from_slice(&y[i]);
-        pos += 1;
-    }
-    for i in (1..SUB_BLOCKS).step_by(2) {
-        out[pos * 64..(pos + 1) * 64].copy_from_slice(&y[i]);
-        pos += 1;
+        // Even-indexed outputs come first, then odd-indexed outputs.
+        let pos = if i % 2 == 0 {
+            i / 2
+        } else {
+            SUB_BLOCKS / 2 + i / 2
+        };
+        out[pos * SUB_WORDS..(pos + 1) * SUB_WORDS].copy_from_slice(&x);
     }
 
     #[cfg(feature = "zeroize")]
-    {
-        sub.zeroize();
-        x.zeroize();
-        y.zeroize();
-    }
+    x.zeroize();
 
     out
 }
@@ -57,26 +45,35 @@ pub(crate) fn block_mix(b: &[u8; BLOCK_SIZE]) -> [u8; BLOCK_SIZE] {
 /// The Salsa20/8 Core Function.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-3
-fn salsa(t: &[u8; 64]) -> [u8; 64] {
+fn salsa(t: &[u64; 8]) -> [u64; 8] {
     let mut state = [0u32; 16];
-    for i in 0..16 {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut chunk: [u8; 4] = t[i * 4..i * 4 + 4]
-            .try_into()
-            .expect("slicing at a fixed aligned offset always yields 4 bytes");
-        state[i] = u32::from_le_bytes(chunk);
-        #[cfg(feature = "zeroize")]
-        chunk.zeroize();
+    for (pair, word) in state.chunks_exact_mut(2).zip(t) {
+        pair[0] = *word as u32;
+        pair[1] = (*word >> 32) as u32;
     }
 
     let mut block = [0u8; 64];
     SalsaCore::<U4>::from_raw_state(state)
         .write_keystream_block((&mut block).into());
 
-    #[cfg(feature = "zeroize")]
-    state.zeroize();
+    let mut out = [0u64; 8];
+    for (word, chunk) in out.iter_mut().zip(block.chunks_exact(8)) {
+        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+        let mut c: [u8; 8] = chunk
+            .try_into()
+            .expect("slicing at a fixed aligned offset always yields 8 bytes");
+        *word = u64::from_le_bytes(c);
+        #[cfg(feature = "zeroize")]
+        c.zeroize();
+    }
 
-    block
+    #[cfg(feature = "zeroize")]
+    {
+        state.zeroize();
+        block.zeroize();
+    }
+
+    out
 }
 
 #[cfg(feature = "zeroize")]
@@ -141,6 +138,9 @@ mod tests {
         put(&mut expected, 8, &OUTPUT);
         put(&mut expected, 15, &OUTPUT);
 
-        assert_eq!(block_mix(&b), expected);
+        assert_eq!(
+            block_mix(&Block::from_bytes(&b)),
+            Block::from_bytes(&expected)
+        );
     }
 }

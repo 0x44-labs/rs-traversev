@@ -1,7 +1,5 @@
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
-
-use crate::common::BLOCK_SIZE;
+use crate::block::Block;
+use crate::common::WORDS;
 use crate::traverse::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop. The loop runs for `k` rounds
@@ -10,23 +8,16 @@ use crate::traverse::blockmix::block_mix;
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
 pub fn dependency_chain(
-    mut x: [u8; BLOCK_SIZE],
-    v: &[u8],
+    mut x: Block,
+    v: &[Block],
     q: usize,
     k: usize,
-) -> [u8; BLOCK_SIZE] {
+) -> Block {
     for _ in 0..k {
         let j = (integerify(&x) % q as u64) as usize;
 
-        let mut t = [0u8; BLOCK_SIZE];
-        for k in 0..BLOCK_SIZE {
-            t[k] = x[k] ^ v[j * BLOCK_SIZE + k];
-        }
-
-        x = block_mix(&t);
-
-        #[cfg(feature = "zeroize")]
-        t.zeroize();
+        x ^= &v[j];
+        x = block_mix(&x);
     }
 
     x
@@ -38,26 +29,21 @@ pub fn dependency_chain(
 /// input regardless of width.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-fn integerify(x: &[u8; BLOCK_SIZE]) -> u64 {
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-    let mut chunk: [u8; 8] = x[BLOCK_SIZE - 8..]
-        .try_into()
-        .expect("slicing at a fixed aligned offset always yields 8 bytes");
-    let j = u64::from_le_bytes(chunk);
-
-    #[cfg(feature = "zeroize")]
-    chunk.zeroize();
-
-    j
+fn integerify(x: &Block) -> u64 {
+    x[WORDS - 1]
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::BLOCK_SIZE;
+
     use super::*;
 
     /// `q` blocks, with block `b` filled with the byte `b + 1`.
-    fn memory(q: usize) -> Vec<u8> {
-        (0..q).flat_map(|b| [b as u8 + 1; BLOCK_SIZE]).collect()
+    fn memory(q: usize) -> Vec<Block> {
+        (0..q)
+            .map(|b| Block::from_bytes(&[b as u8 + 1; BLOCK_SIZE]))
+            .collect()
     }
 
     #[test]
@@ -66,11 +52,13 @@ mod tests {
         // A mask would give 2, a big-endian read 5, and reading the first
         // 8 octets (11) would give 4.
         let v = memory(7);
-        let mut x = [0u8; BLOCK_SIZE];
-        x[..8].copy_from_slice(&11u64.to_le_bytes());
-        x[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        let mut bytes = [0u8; BLOCK_SIZE];
+        bytes[..8].copy_from_slice(&11u64.to_le_bytes());
+        bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        let x = Block::from_bytes(&bytes);
 
-        let t = core::array::from_fn(|i| x[i] ^ v[3 * BLOCK_SIZE + i]);
+        let mut t = x.clone();
+        t ^= &v[3];
 
         assert_eq!(dependency_chain(x, &v, 7, 1), block_mix(&t));
     }
@@ -78,10 +66,11 @@ mod tests {
     #[test]
     fn state_carries_between_rounds() {
         let v = memory(7);
-        let mut x = [0u8; BLOCK_SIZE];
-        x[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        let mut bytes = [0u8; BLOCK_SIZE];
+        bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        let x = Block::from_bytes(&bytes);
 
-        let once = dependency_chain(x, &v, 7, 1);
+        let once = dependency_chain(x.clone(), &v, 7, 1);
 
         assert_eq!(
             dependency_chain(x, &v, 7, 2),
