@@ -31,8 +31,6 @@
 //! IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //! DEALINGS IN THE SOFTWARE.
 use core::num::Wrapping;
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
 
 use crate::block::Block;
 
@@ -72,15 +70,14 @@ macro_rules! permute {
 }
 
 /// Compression Function G of RFC 9106 built upon the BLAKE2b-based
-/// transformation P.
+/// transformation P, computed in place.
+///
+/// `q` holds `R = X ^ Y` on entry and `G(X, Y) = P(R) ^ R` on return,
+/// where `r` is the same `R`.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.5
-pub(crate) fn compress(rhs: &Block, lhs: &Block) -> Block {
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-    let mut r = rhs ^ lhs;
-
+pub(crate) fn compress(q: &mut Block, r: &Block) {
     // Apply permutations rowwise
-    let mut q = r.clone();
     for chunk in q.chunks_exact_mut(16) {
         #[rustfmt::skip]
         permute!(
@@ -108,10 +105,5 @@ pub(crate) fn compress(rhs: &Block, lhs: &Block) -> Block {
         );
     }
 
-    q ^= &r;
-
-    #[cfg(feature = "zeroize")]
-    r.zeroize();
-
-    q
+    *q ^= &r;
 }

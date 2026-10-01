@@ -55,12 +55,19 @@ mod tests {
 
         fill(&mut v, 2, 2);
 
+        let g = |x: &Block, y: &Block| -> Block {
+            let r = x ^ y;
+            let mut q = r.clone();
+            compress::compress(&mut q, &r);
+            q
+        };
+
         // With q = 2 every step has exactly one candidate, so J1 cannot
         // matter. Block 0 wraps to the last block as its predecessor and
         // references B0: G(B1, B0). Block 1 follows the new block 0 and
         // references itself: G(B0', B1).
-        let new_b0 = compress::compress(&b1, &b0);
-        let new_b1 = compress::compress(&new_b0, &b1);
+        let new_b0 = g(&b1, &b0);
+        let new_b1 = g(&new_b0, &b1);
         assert_eq!(v, [new_b0, new_b1]);
     }
 }

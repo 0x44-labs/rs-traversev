@@ -34,11 +34,12 @@ fn fill_block(v: &mut [Block], q: usize, pass: usize, j: usize) {
     let z = reference_index(prev, len, &v[prev]);
 
     #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-    let mut result = compress(&v[prev], &v[z]);
-    v[j].copy_from(&result);
+    let mut r = &v[prev] ^ &v[z];
+    v[j].copy_from(&r);
+    compress(&mut v[j], &r);
 
     #[cfg(feature = "zeroize")]
-    result.zeroize();
+    r.zeroize();
 }
 
 /// Index of the block immediately preceding the one being computed.
