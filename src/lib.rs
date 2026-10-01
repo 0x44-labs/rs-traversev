@@ -237,7 +237,7 @@ impl TraverseV {
             Hasher::new()
         };
         hasher.update(prefix);
-        hasher.update(&v.to_le_bytes().as_ref());
+        hasher.update(v.to_le_bytes().as_ref());
         hasher.update(&self.tag);
 
         let mut bytes = [0u8; BLOCK_SIZE];
@@ -266,17 +266,17 @@ impl TraverseV {
 
     fn check_n(&self, candidate: &[u8; 32]) -> Choice {
         let n = self.params.n_cost() as u8;
-        let bytes = n / 8;
+        let bytes = (n / 8) as usize;
         let bits = n % 8;
 
         // Verify first N bytes are zero, following N bits are zero
         let mut satisfied = Choice::from(1u8);
-        for i in 0..bytes {
-            satisfied &= candidate[i as usize].ct_eq(&0u8);
+        for byte in &candidate[..bytes] {
+            satisfied &= byte.ct_eq(&0u8);
         }
         if bits > 0 {
             let mask = (0xFF << (8 - bits)) as u8;
-            satisfied &= (candidate[bytes as usize] & mask).ct_eq(&0u8);
+            satisfied &= (candidate[bytes] & mask).ct_eq(&0u8);
         }
 
         satisfied

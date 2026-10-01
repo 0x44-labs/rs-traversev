@@ -105,5 +105,5 @@ pub(crate) fn compress(q: &mut Block, r: &Block) {
         );
     }
 
-    *q ^= &r;
+    *q ^= r;
 }

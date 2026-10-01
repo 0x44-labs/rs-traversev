@@ -19,9 +19,8 @@ pub(crate) fn block_mix(b: &Block) -> Block {
         .expect("slicing at a fixed aligned offset always yields 8 words");
 
     let mut out = Block::from_words([0; WORDS]);
-    for i in 0..SUB_BLOCKS {
-        for (xk, bk) in x.iter_mut().zip(&b[i * SUB_WORDS..(i + 1) * SUB_WORDS])
-        {
+    for (i, sub) in b.chunks_exact(SUB_WORDS).enumerate() {
+        for (xk, bk) in x.iter_mut().zip(sub) {
             *xk ^= *bk;
         }
         x = salsa(&x);
