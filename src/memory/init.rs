@@ -2,6 +2,7 @@ use blake3::Hasher;
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
+use crate::block::Block;
 use crate::common::{BLOCK_SIZE, Mode};
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
@@ -21,7 +22,7 @@ pub fn initial_blocks(
     n_cost: u32,
     context: &str,
     secret: Option<&[u8]>,
-) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
+) -> (Block, Block) {
     #[rustfmt::skip]
     #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut h_0 = preimage(
@@ -99,29 +100,31 @@ fn preimage(
     out
 }
 
-/// Wrapper for the BLAKE3 XOF, producing one [BLOCK_SIZE]-sized output for
-/// initial block computations.
+/// Wrapper for the BLAKE3 XOF, producing one [Block] of output.
 ///
 /// Replaces RFC 9106's Function H' for Tag and Initial Block Computations.
-fn init(preimage: &[u8; 64], index: u32) -> [u8; BLOCK_SIZE] {
+fn init(preimage: &[u8; 64], index: u32) -> Block {
     #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut input = [preimage.as_slice(), &index.to_le_bytes()].concat();
 
     let mut hasher = Hasher::new();
     hasher.update(&input);
 
-    let mut out = [0u8; BLOCK_SIZE];
+    let mut buf = [0u8; BLOCK_SIZE];
     let mut reader = hasher.finalize_xof();
-    reader.fill(&mut out);
+    reader.fill(&mut buf);
+
+    let block = Block::from_bytes(&buf);
 
     #[cfg(feature = "zeroize")]
     {
         input.zeroize();
         hasher.zeroize();
         reader.zeroize();
+        buf.zeroize();
     }
 
-    out
+    block
 }
 
 #[cfg(test)]
@@ -182,7 +185,9 @@ mod tests {
         let mut bytes = h_0.to_vec();
         bytes.extend(0u32.to_le_bytes());
 
-        assert_eq!(init(&h_0, 0), xof::<BLOCK_SIZE>(&bytes));
+        let expected = Block::from_bytes(&xof::<BLOCK_SIZE>(&bytes));
+
+        assert_eq!(init(&h_0, 0), expected);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::ops::{BitXor, BitXorAssign, Deref, DerefMut};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
@@ -6,9 +7,7 @@ use crate::common::{BLOCK_SIZE, WORDS};
 /// One block of memory as 128 little-endian `u64` words.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(Debug))]
-pub(crate) struct Block {
-    inner: [u64; WORDS],
-}
+pub(crate) struct Block([u64; WORDS]);
 
 impl Block {
     /// Read a block from its little-endian byte representation.
@@ -26,14 +25,14 @@ impl Block {
             c.zeroize();
         }
 
-        Self { inner: words }
+        Self(words)
     }
 
     /// Write the block as its little-endian byte representation.
     pub(crate) fn to_bytes(&self) -> [u8; BLOCK_SIZE] {
         let mut bytes = [0u8; BLOCK_SIZE];
 
-        for (chunk, word) in bytes.chunks_exact_mut(8).zip(&self.inner) {
+        for (chunk, word) in bytes.chunks_exact_mut(8).zip(&self.0) {
             #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut c = word.to_le_bytes();
             chunk.copy_from_slice(&c);
@@ -46,16 +45,12 @@ impl Block {
     }
 
     pub(crate) const fn from_words(words: [u64; WORDS]) -> Self {
-        Self { inner: words }
-    }
-
-    pub(crate) const fn as_words(&self) -> &[u64; WORDS] {
-        &self.inner
+        Self(words)
     }
 
     /// Overwrite this block with another.
     pub(crate) fn copy_from(&mut self, rhs: &Block) {
-        self.inner.copy_from_slice(&rhs.inner);
+        self.0.copy_from_slice(&rhs.0);
     }
 
     /// J1 (RFC 9106 Deriving J1, J2 in Argon2d): the low 32 bits of the first
@@ -64,14 +59,44 @@ impl Block {
     ///
     /// https://www.rfc-editor.org/info/rfc9106/#section-3.4.1.1
     pub(crate) fn j1(&self) -> u32 {
-        self.inner[0] as u32
+        self.0[0] as u32
+    }
+}
+
+impl BitXorAssign<&Block> for Block {
+    fn bitxor_assign(&mut self, rhs: &Block) {
+        for (a, b) in self.0.iter_mut().zip(&rhs.0) {
+            *a ^= *b;
+        }
+    }
+}
+
+impl BitXor<&Block> for &Block {
+    type Output = Block;
+
+    fn bitxor(self, rhs: &Block) -> Self::Output {
+        Block(core::array::from_fn(|i| self.0[i] ^ rhs.0[i]))
+    }
+}
+
+impl Deref for Block {
+    type Target = [u64];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Block {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
 #[cfg(feature = "zeroize")]
 impl Zeroize for Block {
     fn zeroize(&mut self) {
-        self.inner.zeroize();
+        self.0.zeroize();
     }
 }
 
@@ -98,7 +123,7 @@ mod tests {
             let expected = u64::from_le_bytes(
                 b[i * 8..(i + 1) * 8].try_into().unwrap(),
             );
-            assert_eq!(block.as_words()[i], expected);
+            assert_eq!(block[i], expected);
         }
     }
 
