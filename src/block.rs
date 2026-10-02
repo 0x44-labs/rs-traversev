@@ -58,6 +58,12 @@ impl Block {
     }
 }
 
+impl Default for Block {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl core::fmt::Debug for Block {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Block").finish_non_exhaustive()
