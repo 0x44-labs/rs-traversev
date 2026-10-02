@@ -136,7 +136,7 @@ mod tests {
     const SECRET: &[u8] = b"This is a secret.";
 
     #[test]
-    fn build_runs_passes_over_seeded_memory() {
+    fn runs_passes_over_seeded_memory() {
         let g = |x: &Block, y: &Block| -> Block {
             let r = x ^ y;
             let mut q = r.clone();
@@ -176,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn fill_matches_argon2d_first_pass() {
+    fn matches_argon2d_first_pass() {
         // With one lane and one pass, Argon2d picks reference blocks exactly
         // as the first pass of `fill` does, so the memory must be identical.
         let params = ArgonParams::new(8, 1, 1, None).unwrap();
@@ -203,5 +203,29 @@ mod tests {
         fill(&mut v, 8, 1);
 
         assert_eq!(v, expected);
+    }
+
+    #[test]
+    fn later_passes_wrap_and_self_ref() {
+        // With q = 2 J1 cannot matter. Block 0 wraps to the last block as its
+        // predecessor and references itself: G(B1, B0). Block 1 follows the
+        // new block 0 and references itself: G(B0', B1).
+        let mut b0 = Block::new();
+        b0.fill(1);
+        let mut b1 = Block::new();
+        b1.fill(2);
+
+        let mut v = vec![b0.clone(), b1.clone()];
+        fill(&mut v, 2, 2);
+
+        let r = &b1 ^ &b0;
+        let mut new_b0 = r.clone();
+        compress(&mut new_b0, &r);
+
+        let r = &new_b0 ^ &b1;
+        let mut new_b1 = r.clone();
+        compress(&mut new_b1, &r);
+
+        assert_eq!(v, [new_b0, new_b1]);
     }
 }

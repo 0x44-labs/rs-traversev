@@ -15,12 +15,12 @@ impl Block {
     pub const WORDS: usize = Self::SIZE / 8;
 
     /// Create a new block of zero words.
-    pub(crate) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self([0u64; Self::WORDS])
     }
 
     /// Read a block from its little-endian byte representation, in place.
-    pub(crate) fn copy_from_bytes(&mut self, bytes: &[u8; Self::SIZE]) {
+    pub fn copy_from_bytes(&mut self, bytes: &[u8; Self::SIZE]) {
         for (word, chunk) in self.0.iter_mut().zip(bytes.chunks_exact(8)) {
             let mut c: [u8; 8] = chunk.try_into().expect(
                 "slicing at a fixed aligned offset always yields 8 bytes",
@@ -33,7 +33,7 @@ impl Block {
     }
 
     /// Write the block as its little-endian byte representation, in place.
-    pub(crate) fn copy_to_bytes(&self, bytes: &mut [u8; Self::SIZE]) {
+    pub fn copy_to_bytes(&self, bytes: &mut [u8; Self::SIZE]) {
         for (chunk, word) in bytes.chunks_exact_mut(8).zip(&self.0) {
             let mut c = word.to_le_bytes();
             chunk.copy_from_slice(&c);

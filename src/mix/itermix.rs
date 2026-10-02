@@ -5,11 +5,12 @@ use crate::block::Block;
 use crate::mix::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop, computed in place on `x`. The
-/// loop runs for `k` rounds and is independent of q, compared to RFC 7914
-/// sizing both the array and iteration count from N.
+/// loop runs for `k` rounds and is independent of V's length, compared to
+/// RFC 7914 sizing both the array and iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub fn iter_mix(x: &mut Block, v: &[Block], q: usize, k: usize) {
+pub fn iter_mix(x: &mut Block, v: &[Block], k: usize) {
+    let q = v.len();
     let mut tmp = Block::new();
 
     for _ in 0..k {
@@ -24,9 +25,9 @@ pub fn iter_mix(x: &mut Block, v: &[Block], q: usize, k: usize) {
 }
 
 /// Integerify, narrowed to the last 8 octets of X rather than the full last
-/// 64-octet sub-block. q is not constrained to a power of two the way N is,
-/// and scryptBlockMix's Salsa20/8 core binds every output byte to the full
-/// input regardless of width.
+/// 64-octet sub-block. V's length is not constrained to a power of two the
+/// way N is, and scryptBlockMix's Salsa20/8 core binds every output byte to
+/// the full input regardless of width.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
 fn integerify(x: &Block) -> u64 {
@@ -50,8 +51,8 @@ mod tests {
             .collect()
     }
 
-    fn mixed(mut x: Block, v: &[Block], q: usize, k: usize) -> Block {
-        iter_mix(&mut x, v, q, k);
+    fn mixed(mut x: Block, v: &[Block], k: usize) -> Block {
+        iter_mix(&mut x, v, k);
         x
     }
 
@@ -72,7 +73,7 @@ mod tests {
         let mut tmp = Block::new();
         block_mix(&mut dst, &mut tmp);
 
-        assert_eq!(mixed(x, &v, 7, 1), dst);
+        assert_eq!(mixed(x, &v, 1), dst);
     }
 
     #[test]
@@ -83,8 +84,8 @@ mod tests {
         let mut x = Block::new();
         x.copy_from_bytes(&bytes);
 
-        let once = mixed(x.clone(), &v, 7, 1);
+        let once = mixed(x.clone(), &v, 1);
 
-        assert_eq!(mixed(x, &v, 7, 2), mixed(once, &v, 7, 1));
+        assert_eq!(mixed(x, &v, 2), mixed(once, &v, 1));
     }
 }
