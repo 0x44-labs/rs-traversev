@@ -18,6 +18,17 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
   
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-msrv
+      - run: cargo msrv verify -- cargo check
+      - run: cargo msrv verify -- cargo check --all-features
+  
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
