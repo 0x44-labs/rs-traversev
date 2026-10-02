@@ -9,7 +9,7 @@ use crate::mix::blockmix::block_mix;
 /// RFC 7914 sizing both the array and iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub fn iter_mix(x: &mut Block, v: &[Block], k: usize) {
+pub(crate) fn iter_mix(x: &mut Block, v: &[Block], k: usize) {
     let q = v.len();
     let mut tmp = Block::new();
 

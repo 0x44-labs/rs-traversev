@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+#![warn(missing_docs, missing_debug_implementations, unreachable_pub)]
 #![cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
 #![doc = include_str!("../README.md")]
 //! ## Example
@@ -144,7 +146,9 @@ impl TraverseV {
     /// Mine for a proof satisfying this instance's configured difficulty.
     ///
     /// Iteratively searches for candidates until one satisfies the difficulty.
-    /// Runtime is unbounded on high difficulties.
+    /// Runtime is unbounded on high difficulties. As the counter can overflow,
+    /// the type must be wide enough to reach a satisfying proof, otherwise the
+    /// counter wraps around causing an infinite loop.
     ///
     /// A [trustless](Self::new_trustless) instance mines for a trustless
     /// proof, and a [permissioned](Self::new_permissioned) instance mines for
@@ -312,7 +316,6 @@ impl core::fmt::Debug for TraverseV {
 #[cfg(feature = "zeroize")]
 impl Drop for TraverseV {
     fn drop(&mut self) {
-        self.buffer.zeroize();
         self.tag.zeroize();
         self.key.zeroize();
     }

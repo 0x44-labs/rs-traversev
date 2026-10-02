@@ -13,7 +13,7 @@ use crate::params::Params;
 /// The starting blocks B0 and B1 are derived from the mode, parameters,
 /// context, and optional secret. The starting blocks are placed at the start
 /// of V, and the remaining blocks are computed over `t_cost` passes by [fill].
-pub fn build_buffer(
+pub(crate) fn build_buffer(
     mode: Mode,
     secret: Option<&[u8]>,
     context: &str,

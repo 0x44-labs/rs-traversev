@@ -1,10 +1,10 @@
 use std::ops::{BitXor, BitXorAssign, Deref, DerefMut};
 #[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// One block of memory as 128 little-endian `u64` words.
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Block([u64; Self::WORDS]);
 
 impl Block {
@@ -58,6 +58,12 @@ impl Block {
     }
 }
 
+impl core::fmt::Debug for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Block").finish_non_exhaustive()
+    }
+}
+
 impl BitXorAssign<&Block> for Block {
     fn bitxor_assign(&mut self, rhs: &Block) {
         for (a, b) in self.0.iter_mut().zip(&rhs.0) {
@@ -94,6 +100,16 @@ impl Zeroize for Block {
         self.0.zeroize();
     }
 }
+
+#[cfg(feature = "zeroize")]
+impl Drop for Block {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl ZeroizeOnDrop for Block {}
 
 #[cfg(test)]
 mod tests {
@@ -138,5 +154,13 @@ mod tests {
 
         let expected = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
         assert_eq!(block.j1(), expected);
+    }
+
+    #[test]
+    fn debug_omits_contents() {
+        let mut block = Block::new();
+        block.copy_from_bytes(&bytes());
+
+        assert_eq!(format!("{block:?}"), "Block { .. }");
     }
 }
