@@ -302,6 +302,15 @@ fn context_tag(context: &str) -> [u8; 32] {
     tag
 }
 
+impl Default for TraverseV {
+    fn default() -> Self {
+        let context = "";
+        let params = Params::default();
+
+        TraverseV::new_trustless(context, params)
+    }
+}
+
 impl core::fmt::Debug for TraverseV {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TraverseV")
