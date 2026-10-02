@@ -1,20 +1,26 @@
+#[cfg(feature = "zeroize")]
+use zeroize::Zeroize;
+
 use crate::block::{Block, WORDS};
 use crate::mix::blockmix::block_mix;
 
-/// The scryptROMix algorithm's second loop. The loop runs for `k` rounds
-/// and is independent of q, compared to RFC 7914 sizing both the array and
-/// iteration count from N.
+/// The scryptROMix algorithm's second loop, computed in place on `x`. The
+/// loop runs for `k` rounds and is independent of q, compared to RFC 7914
+/// sizing both the array and iteration count from N.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
-pub fn iter_mix(mut x: Block, v: &[Block], q: usize, k: usize) -> Block {
-    for _ in 0..k {
-        let j = (integerify(&x) % q as u64) as usize;
+pub fn iter_mix(x: &mut Block, v: &[Block], q: usize, k: usize) {
+    let mut tmp = Block::new();
 
-        x ^= &v[j];
-        x = block_mix(&x);
+    for _ in 0..k {
+        let j = (integerify(x) % q as u64) as usize;
+
+        *x ^= &v[j];
+        block_mix(x, &mut tmp);
     }
 
-    x
+    #[cfg(feature = "zeroize")]
+    tmp.zeroize();
 }
 
 /// Integerify, narrowed to the last 8 octets of X rather than the full last
@@ -36,8 +42,17 @@ mod tests {
     /// `q` blocks, with block `b` filled with the byte `b + 1`.
     fn memory(q: usize) -> Vec<Block> {
         (0..q)
-            .map(|b| Block::from_bytes(&[b as u8 + 1; BLOCK_SIZE]))
+            .map(|b| {
+                let mut block = Block::new();
+                block.copy_from_bytes(&[b as u8 + 1; BLOCK_SIZE]);
+                block
+            })
             .collect()
+    }
+
+    fn mixed(mut x: Block, v: &[Block], q: usize, k: usize) -> Block {
+        iter_mix(&mut x, v, q, k);
+        x
     }
 
     #[test]
@@ -49,12 +64,15 @@ mod tests {
         let mut bytes = [0u8; BLOCK_SIZE];
         bytes[..8].copy_from_slice(&11u64.to_le_bytes());
         bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
-        let x = Block::from_bytes(&bytes);
+        let mut x = Block::new();
+        x.copy_from_bytes(&bytes);
 
-        let mut t = x.clone();
-        t ^= &v[3];
+        let mut dst = x.clone();
+        dst ^= &v[3];
+        let mut tmp = Block::new();
+        block_mix(&mut dst, &mut tmp);
 
-        assert_eq!(iter_mix(x, &v, 7, 1), block_mix(&t));
+        assert_eq!(mixed(x, &v, 7, 1), dst);
     }
 
     #[test]
@@ -62,10 +80,11 @@ mod tests {
         let v = memory(7);
         let mut bytes = [0u8; BLOCK_SIZE];
         bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
-        let x = Block::from_bytes(&bytes);
+        let mut x = Block::new();
+        x.copy_from_bytes(&bytes);
 
-        let once = iter_mix(x.clone(), &v, 7, 1);
+        let once = mixed(x.clone(), &v, 7, 1);
 
-        assert_eq!(iter_mix(x, &v, 7, 2), iter_mix(once, &v, 7, 1));
+        assert_eq!(mixed(x, &v, 7, 2), mixed(once, &v, 7, 1));
     }
 }

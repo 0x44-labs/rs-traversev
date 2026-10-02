@@ -32,7 +32,7 @@
 //! ## Features
 //!
 //! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
-//! TraverseV, and zeroises intermediate values.
+//! TraverseV, and zeroises intermediate values on a best-effort basis.
 mod block;
 mod errors;
 mod memory;
@@ -243,12 +243,14 @@ impl TraverseV {
         let mut bytes = [0u8; BLOCK_SIZE];
         let mut reader = hasher.finalize_xof();
         reader.fill(&mut bytes);
-        let mut x = Block::from_bytes(&bytes);
+        let mut x = Block::new();
+        x.copy_from_bytes(&bytes);
 
         let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
-        x = iter_mix(x, &self.buffer, q, k);
-        let mut x_bytes = x.to_bytes();
+        iter_mix(&mut x, &self.buffer, q, k);
+        let mut x_bytes = [0u8; BLOCK_SIZE];
+        x.copy_to_bytes(&mut x_bytes);
         let mut hash = blake3::hash(&x_bytes);
         let candidate: [u8; 32] = hash.into();
 
@@ -256,6 +258,7 @@ impl TraverseV {
         {
             hasher.zeroize();
             reader.zeroize();
+            bytes.zeroize();
             x.zeroize();
             x_bytes.zeroize();
             hash.zeroize();

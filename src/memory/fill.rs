@@ -1,7 +1,7 @@
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::{Block, WORDS};
+use crate::block::Block;
 use crate::memory::{
     compress::compress,
     init::{Mode, initial_blocks},
@@ -22,17 +22,9 @@ pub fn build_buffer(
     let q = params.m_cost() as usize;
     let t = params.t_cost() as usize;
 
-    let (mut b0, mut b1) = initial_blocks(mode, params, context, secret);
-
-    let mut v = vec![Block::from_words([0; WORDS]); q];
-    v[0].copy_from(&b0);
-    v[1].copy_from(&b1);
-
-    #[cfg(feature = "zeroize")]
-    {
-        b0.zeroize();
-        b1.zeroize();
-    }
+    let mut v = vec![Block::new(); q];
+    let dst = v.first_chunk_mut::<2>().expect("m_cost is at least 2");
+    initial_blocks(dst, mode, params, context, secret);
 
     fill(&mut v, q, t);
 
@@ -135,7 +127,7 @@ mod tests {
         Algorithm, Argon2, Block as ArgonBlock, Params as ArgonParams, Version,
     };
 
-    use crate::block::{Block, WORDS};
+    use crate::block::Block;
     use crate::params::Params;
 
     use super::*;
@@ -159,12 +151,14 @@ mod tests {
             // is the compression of its predecessor with some earlier block.
             let params =
                 Params::new(8, 1, 1, 1).expect("test parameters are valid");
-            let (b0, b1) = initial_blocks(mode, params, CONTEXT, secret);
+
+            let mut dst = [Block::new(), Block::new()];
+            initial_blocks(&mut dst, mode, params, CONTEXT, secret);
             let v = build_buffer(mode, secret, CONTEXT, params);
 
             assert_eq!(v.len(), 8);
-            assert_eq!(v[0], b0);
-            assert_eq!(v[1], b1);
+            assert_eq!(v[0], dst[0]);
+            assert_eq!(v[1], dst[1]);
             for j in 2..v.len() {
                 assert!((0..j - 1).any(|i| g(&v[j - 1], &v[i]) == v[j]));
             }
@@ -172,11 +166,12 @@ mod tests {
             // Two passes: the second pass overwrites both seeds.
             let params =
                 Params::new(8, 2, 1, 1).expect("test parameters are valid");
-            let (b0, b1) = initial_blocks(mode, params, CONTEXT, secret);
+            let mut dst = [Block::new(), Block::new()];
+            initial_blocks(&mut dst, mode, params, CONTEXT, secret);
             let v = build_buffer(mode, secret, CONTEXT, params);
 
-            assert_ne!(v[0], b0);
-            assert_ne!(v[1], b1);
+            assert_ne!(v[0], dst[0]);
+            assert_ne!(v[1], dst[1]);
         }
     }
 
@@ -195,12 +190,14 @@ mod tests {
             .iter()
             .map(|block| {
                 let words: &[u64] = block.as_ref();
-                Block::from_words(words.try_into().unwrap())
+                let mut b = Block::new();
+                b.copy_from_slice(words);
+                b
             })
             .collect();
 
         // Start from Argon2's first two blocks and let `fill` do the rest.
-        let mut v = vec![Block::from_words([0; WORDS]); 8];
+        let mut v = vec![Block::new(); 8];
         v[0].copy_from(&expected[0]);
         v[1].copy_from(&expected[1]);
         fill(&mut v, 8, 1);

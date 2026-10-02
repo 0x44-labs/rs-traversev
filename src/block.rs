@@ -14,11 +14,14 @@ pub const WORDS: usize = BLOCK_SIZE / 8;
 pub(crate) struct Block([u64; WORDS]);
 
 impl Block {
-    /// Read a block from its little-endian byte representation.
-    pub(crate) fn from_bytes(bytes: &[u8; BLOCK_SIZE]) -> Self {
-        let mut words = [0u64; WORDS];
+    /// Create a new block of zero words.
+    pub(crate) const fn new() -> Self {
+        Self([0u64; WORDS])
+    }
 
-        for (word, chunk) in words.iter_mut().zip(bytes.chunks_exact(8)) {
+    /// Read a block from its little-endian byte representation, in place.
+    pub(crate) fn copy_from_bytes(&mut self, bytes: &[u8; BLOCK_SIZE]) {
+        for (word, chunk) in self.0.iter_mut().zip(bytes.chunks_exact(8)) {
             let mut c: [u8; 8] = chunk.try_into().expect(
                 "slicing at a fixed aligned offset always yields 8 bytes",
             );
@@ -27,14 +30,10 @@ impl Block {
             #[cfg(feature = "zeroize")]
             c.zeroize();
         }
-
-        Self(words)
     }
 
-    /// Write the block as its little-endian byte representation.
-    pub(crate) fn to_bytes(&self) -> [u8; BLOCK_SIZE] {
-        let mut bytes = [0u8; BLOCK_SIZE];
-
+    /// Write the block as its little-endian byte representation, in place.
+    pub(crate) fn copy_to_bytes(&self, bytes: &mut [u8; BLOCK_SIZE]) {
         for (chunk, word) in bytes.chunks_exact_mut(8).zip(&self.0) {
             let mut c = word.to_le_bytes();
             chunk.copy_from_slice(&c);
@@ -42,12 +41,6 @@ impl Block {
             #[cfg(feature = "zeroize")]
             c.zeroize();
         }
-
-        bytes
-    }
-
-    pub(crate) const fn from_words(words: [u64; WORDS]) -> Self {
-        Self(words)
     }
 
     /// Overwrite this block with another.
@@ -107,19 +100,27 @@ mod tests {
     use super::*;
 
     fn bytes() -> [u8; BLOCK_SIZE] {
-        core::array::from_fn(|i| (i * 7 + 3) as u8)
+        core::array::from_fn(|i| (i + (i >> 8)) as u8)
     }
 
     #[test]
     fn bytes_round_trip() {
         let b = bytes();
-        assert_eq!(Block::from_bytes(&b).to_bytes(), b);
+        let mut block = Block([u64::MAX; WORDS]);
+        block.copy_from_bytes(&b);
+
+        let mut out = [0xFF; BLOCK_SIZE];
+        block.copy_to_bytes(&mut out);
+
+        assert_eq!(out, b);
     }
 
     #[test]
     fn words_are_little_endian() {
         let b = bytes();
-        let block = Block::from_bytes(&b);
+        let mut block = Block([u64::MAX; WORDS]);
+        block.copy_from_bytes(&b);
+
         for i in 0..WORDS {
             #[rustfmt::skip]
             let expected = u64::from_le_bytes(
@@ -132,7 +133,10 @@ mod tests {
     #[test]
     fn j1_is_first_four_octets_little_endian() {
         let b = bytes();
+        let mut block = Block::new();
+        block.copy_from_bytes(&b);
+
         let expected = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
-        assert_eq!(Block::from_bytes(&b).j1(), expected);
+        assert_eq!(block.j1(), expected);
     }
 }

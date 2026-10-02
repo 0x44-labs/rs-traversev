@@ -40,20 +40,19 @@ const _: () = {
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 pub(crate) fn initial_blocks(
+    dst: &mut [Block; 2],
     mode: Mode,
     params: Params,
     context: &str,
     secret: Option<&[u8]>,
-) -> (Block, Block) {
+) {
     let mut h_0 = preimage(mode, params, context, secret);
 
-    let b0 = init(&h_0, 0);
-    let b1 = init(&h_0, 1);
+    init(&mut dst[0], &h_0, 0);
+    init(&mut dst[1], &h_0, 1);
 
     #[cfg(feature = "zeroize")]
     h_0.zeroize();
-
-    (b0, b1)
 }
 
 /// Hash preimage of the parameters and secret. Delivers a consistent 64 byte
@@ -110,7 +109,7 @@ fn preimage(
 /// Wrapper for the BLAKE3 XOF, producing one [Block] of output.
 ///
 /// Replaces RFC 9106's Function H' for Tag and Initial Block Computations.
-fn init(preimage: &[u8; 64], index: u32) -> Block {
+fn init(dst: &mut Block, preimage: &[u8; 64], index: u32) {
     let mut input = [preimage.as_slice(), &index.to_le_bytes()].concat();
 
     let mut hasher = Hasher::new();
@@ -120,7 +119,7 @@ fn init(preimage: &[u8; 64], index: u32) -> Block {
     let mut reader = hasher.finalize_xof();
     reader.fill(&mut buf);
 
-    let block = Block::from_bytes(&buf);
+    dst.copy_from_bytes(&buf);
 
     #[cfg(feature = "zeroize")]
     {
@@ -129,8 +128,6 @@ fn init(preimage: &[u8; 64], index: u32) -> Block {
         reader.zeroize();
         buf.zeroize();
     }
-
-    block
 }
 
 #[cfg(test)]
@@ -185,18 +182,25 @@ mod tests {
         let mut bytes = h_0.to_vec();
         bytes.extend(0u32.to_le_bytes());
 
-        let expected = Block::from_bytes(&xof::<BLOCK_SIZE>(&bytes));
+        let mut expected = Block::new();
+        expected.copy_from_bytes(&xof::<BLOCK_SIZE>(&bytes));
 
-        assert_eq!(init(&h_0, 0), expected);
+        let mut block = Block::new();
+        init(&mut block, &h_0, 0);
+        assert_eq!(block, expected);
     }
 
     #[test]
     fn initial_blocks_produces_two_blocks() {
         let params = Params::default();
         let h_0 = preimage(Mode::Trustless, params, CONTEXT, None);
-        let (b0, b1) = initial_blocks(Mode::Trustless, params, CONTEXT, None);
+        let mut dst = [Block::new(), Block::new()];
+        initial_blocks(&mut dst, Mode::Trustless, params, CONTEXT, None);
 
-        assert_eq!(b0, init(&h_0, 0));
-        assert_eq!(b1, init(&h_0, 1));
+        let mut expected = Block::new();
+        init(&mut expected, &h_0, 0);
+        assert_eq!(dst[0], expected);
+        init(&mut expected, &h_0, 1);
+        assert_eq!(dst[1], expected);
     }
 }

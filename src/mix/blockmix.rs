@@ -3,27 +3,29 @@ use salsa20::cipher::{StreamCipherCore, consts::U4};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::{BLOCK_SIZE, Block, WORDS};
+use crate::block::{BLOCK_SIZE, Block};
 
 /// The scryptBlockMix Algorithm, specialised for `r = 8`, `128 * r = 1024`.
 /// This operates directly on one [BLOCK_SIZE]-sized block with no resizing,
 /// with 16 sub-blocks of 8 words each fixed at compile time.
 ///
+/// `dst` holds the input and receives the output. `tmp` is scratch space that
+/// is fully overwritten so the call site can reuse one buffer across rounds.
+///
 /// https://www.rfc-editor.org/info/rfc7914/#section-4
-pub(crate) fn block_mix(b: &Block) -> Block {
+pub(crate) fn block_mix(dst: &mut Block, tmp: &mut Block) {
     const SUB_BLOCKS: usize = BLOCK_SIZE / 64; // 2r = 16, r = 8
     const SUB_WORDS: usize = 8;
 
-    let mut x: [u64; SUB_WORDS] = b[(SUB_BLOCKS - 1) * SUB_WORDS..]
+    let mut x: [u64; SUB_WORDS] = dst[(SUB_BLOCKS - 1) * SUB_WORDS..]
         .try_into()
         .expect("slicing at a fixed aligned offset always yields 8 words");
 
-    let mut out = Block::from_words([0; WORDS]);
-    for (i, sub) in b.chunks_exact(SUB_WORDS).enumerate() {
+    for (i, sub) in dst.chunks_exact(SUB_WORDS).enumerate() {
         for (xk, bk) in x.iter_mut().zip(sub) {
             *xk ^= *bk;
         }
-        x = salsa(&x);
+        salsa(&mut x);
 
         // Even-indexed outputs come first, then odd-indexed outputs.
         let pos = if i % 2 == 0 {
@@ -31,21 +33,21 @@ pub(crate) fn block_mix(b: &Block) -> Block {
         } else {
             SUB_BLOCKS / 2 + i / 2
         };
-        out[pos * SUB_WORDS..(pos + 1) * SUB_WORDS].copy_from_slice(&x);
+        tmp[pos * SUB_WORDS..(pos + 1) * SUB_WORDS].copy_from_slice(&x);
     }
 
     #[cfg(feature = "zeroize")]
     x.zeroize();
 
-    out
+    dst.copy_from(tmp);
 }
 
 /// The Salsa20/8 Core Function.
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-3
-fn salsa(t: &[u64; 8]) -> [u64; 8] {
+fn salsa(t: &mut [u64; 8]) {
     let mut state = [0u32; 16];
-    for (pair, word) in state.chunks_exact_mut(2).zip(t) {
+    for (pair, word) in state.chunks_exact_mut(2).zip(t.iter()) {
         pair[0] = *word as u32;
         pair[1] = (*word >> 32) as u32;
     }
@@ -54,8 +56,7 @@ fn salsa(t: &[u64; 8]) -> [u64; 8] {
     SalsaCore::<U4>::from_raw_state(state)
         .write_keystream_block((&mut block).into());
 
-    let mut out = [0u64; 8];
-    for (word, chunk) in out.iter_mut().zip(block.chunks_exact(8)) {
+    for (word, chunk) in t.iter_mut().zip(block.chunks_exact(8)) {
         let mut c: [u8; 8] = chunk
             .try_into()
             .expect("slicing at a fixed aligned offset always yields 8 bytes");
@@ -69,8 +70,6 @@ fn salsa(t: &[u64; 8]) -> [u64; 8] {
         state.zeroize();
         block.zeroize();
     }
-
-    out
 }
 
 #[cfg(feature = "zeroize")]
@@ -130,14 +129,18 @@ mod tests {
 
         // Even-indexed Y come first, then odd-indexed Y, so Y[0], Y[1] and
         // Y[15] land in output sub-blocks 0, 8 and 15.
-        let mut expected = [0u8; BLOCK_SIZE];
-        put(&mut expected, 0, &OUTPUT);
-        put(&mut expected, 8, &OUTPUT);
-        put(&mut expected, 15, &OUTPUT);
+        let mut e = [0u8; BLOCK_SIZE];
+        put(&mut e, 0, &OUTPUT);
+        put(&mut e, 8, &OUTPUT);
+        put(&mut e, 15, &OUTPUT);
 
-        assert_eq!(
-            block_mix(&Block::from_bytes(&b)),
-            Block::from_bytes(&expected)
-        );
+        let mut dst = Block::new();
+        dst.copy_from_bytes(&b);
+        let mut tmp = Block::new();
+        block_mix(&mut dst, &mut tmp);
+
+        let mut expected = Block::new();
+        expected.copy_from_bytes(&e);
+        assert_eq!(dst, expected);
     }
 }
