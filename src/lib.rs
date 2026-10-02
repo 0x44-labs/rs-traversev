@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-#![warn(missing_docs, missing_debug_implementations, unreachable_pub)]
 #![cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
 #![doc = include_str!("../README.md")]
 //! ## Example
