@@ -31,10 +31,8 @@
 //! IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //! DEALINGS IN THE SOFTWARE.
 use core::num::Wrapping;
-#[cfg(feature = "zeroize")]
-use zeroize::Zeroize;
 
-use crate::common::{BLOCK_SIZE, WORDS};
+use crate::block::Block;
 
 const TRUNC: u64 = u32::MAX as u64;
 
@@ -72,17 +70,14 @@ macro_rules! permute {
 }
 
 /// Compression Function G of RFC 9106 built upon the BLAKE2b-based
-/// transformation P.
+/// transformation P, computed in place.
+///
+/// `q` holds `R = X ^ Y` on entry and `G(X, Y) = P(R) ^ R` on return,
+/// where `r` is the same `R`.
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.5
-pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
-    let mut r = [0u64; WORDS];
-    for i in 0..WORDS {
-        r[i] = rhs[i] ^ lhs[i];
-    }
-
+pub(crate) fn compress(q: &mut Block, r: &Block) {
     // Apply permutations rowwise
-    let mut q = r;
     for chunk in q.chunks_exact_mut(16) {
         #[rustfmt::skip]
         permute!(
@@ -110,42 +105,5 @@ pub(crate) fn compress(rhs: &[u64; WORDS], lhs: &[u64; WORDS]) -> [u64; WORDS] {
         );
     }
 
-    for i in 0..WORDS {
-        q[i] ^= r[i];
-    }
-
-    #[cfg(feature = "zeroize")]
-    r.zeroize();
-
-    q
-}
-
-/// Convert one block from bytes to words.
-pub(crate) fn bytes_to_words(bytes: &[u8; BLOCK_SIZE]) -> [u64; WORDS] {
-    let mut words = [0u64; WORDS];
-    for i in 0..WORDS {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut chunk: [u8; 8] = bytes[i * 8..i * 8 + 8]
-            .try_into()
-            .expect("slicing at a fixed aligned offset always yields 8 bytes");
-        words[i] = u64::from_le_bytes(chunk);
-        #[cfg(feature = "zeroize")]
-        chunk.zeroize();
-    }
-
-    words
-}
-
-/// Convert one block of words to bytes.
-pub(crate) fn words_to_bytes(words: &[u64; WORDS]) -> [u8; BLOCK_SIZE] {
-    let mut bytes = [0u8; BLOCK_SIZE];
-    for i in 0..WORDS {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut word_bytes = words[i].to_le_bytes();
-        bytes[i * 8..i * 8 + 8].copy_from_slice(&word_bytes);
-        #[cfg(feature = "zeroize")]
-        word_bytes.zeroize();
-    }
-
-    bytes
+    *q ^= r;
 }

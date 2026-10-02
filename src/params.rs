@@ -1,7 +1,7 @@
 use crate::errors::TraverseVErr;
 
 /// TraverseV proof-of-work parameters.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Params {
     m_cost: u32,
     t_cost: u32,
@@ -15,24 +15,15 @@ impl Params {
 
     const MIN_M: u32 = 2;
 
-    #[allow(dead_code)]
-    const MAX_M: u32 = u32::MAX;
-
     /// Default time cost (number of memory fill iterations) `t`.
     pub const DEFAULT_T: u32 = 3;
 
     const MIN_T: u32 = 1;
 
-    #[allow(dead_code)]
-    const MAX_T: u32 = u32::MAX;
-
     /// Default number of evaluation mixing rounds `e`.
     pub const DEFAULT_E: u32 = 8;
 
     const MIN_E: u32 = 1;
-
-    #[allow(dead_code)]
-    const MAX_D: u32 = u32::MAX;
 
     /// Default proof-of-work difficulty `n`.
     pub const DEFAULT_N: u32 = 20;
@@ -101,7 +92,7 @@ impl Params {
         self.t_cost
     }
 
-    /// Number of sequential dependency mixing rounds
+    /// Number of sequential dependency mixing rounds.
     pub const fn e_cost(&self) -> u32 {
         self.e_cost
     }

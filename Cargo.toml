@@ -1,6 +1,6 @@
 [package]
 name = "traversev"
-version = "0.1.0"
+version = "0.2.0"
 description = """
 A memory-hard proof-of-work scheme for trustless and permissioned proofs.
 """
@@ -12,6 +12,7 @@ repository = "https://github.com/0x44-labs/rs-traversev"
 keywords = ["pow", "proof-of-work", "memory-hard", "blake3", "salsa20"]
 categories = ["cryptography", "algorithms"]
 readme = "README.md"
+include = ["src/**/*", "README.md", "LICENSE"]
 edition = "2024"
 rust-version = "1.85.1"
 
@@ -21,9 +22,19 @@ zeroize = ["dep:zeroize", "blake3/zeroize", "salsa20/zeroize"]
 
 [dependencies]
 blake3 = "1.8.7"
+num-traits = "0.2.19"
 salsa20 = "0.11.0"
 subtle = "2.6.1"
 zeroize = { version = "1.9.0", optional = true }
 
 [dev-dependencies]
 argon2 = "0.6.0"
+
+[lints.rust]
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+unreachable_pub = "forbid"
+unsafe_code = "forbid"
+
+[package.metadata.docs.rs]
+all-features = true

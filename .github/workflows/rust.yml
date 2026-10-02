@@ -18,23 +18,54 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
   
-  clippy:
-    name: Clippy
+  msrv:
+    name: MSRV (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: default features
+            flags: ""
+          - name: all features
+            flags: "--all-features"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-msrv
+      - run: cargo msrv verify -- cargo check ${{ matrix.flags }}
+  
+  clippy:
+    name: Clippy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: default features
+            flags: ""
+          - name: all features
+            flags: "--all-features"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --all-targets ${{ matrix.flags }} -- -D warnings
   
   test:
-    name: Test
+    name: Test (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: default features
+            flags: ""
+          - name: all features
+            flags: "--all-features"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-features
+      - run: cargo test ${{ matrix.flags }}
   
   docs:
     name: Docs build

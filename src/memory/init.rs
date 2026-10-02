@@ -2,7 +2,33 @@ use blake3::Hasher;
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::common::{BLOCK_SIZE, Mode};
+use crate::block::Block;
+use crate::params::Params;
+
+/// Indicates whether a TraverseV instance produces trustless or permissioned
+/// proofs.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Mode {
+    /// Proofs are trustless.
+    ///
+    /// Verifiable by any instance sharing the same application context and
+    /// parameters.
+    Trustless = 0x54,
+
+    /// Proofs are permissioned.
+    ///
+    /// Verifiable only by instances sharing the same application context,
+    /// parameters, and shared secret.
+    Permissioned = 0x50,
+}
+
+// Compile-time invariants
+const _: () = {
+    assert!(Block::SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
+    assert!(Block::WORDS % 16 == 0); // rows of 16 words
+    assert!(Block::WORDS / 16 == 8); // eight rows / column pairs
+};
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
 /// Blocks and Second Lane Blocks, but specialised for TraverseV lacking a
@@ -13,34 +39,20 @@ use crate::common::{BLOCK_SIZE, Mode};
 /// `B[1] = init(H_0 || LE32(1))`
 ///
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
-pub fn initial_blocks(
+pub(crate) fn initial_blocks(
+    dst: &mut [Block; 2],
     mode: Mode,
-    m_cost: u32,
-    t_cost: u32,
-    e_cost: u32,
-    n_cost: u32,
+    params: Params,
     context: &str,
     secret: Option<&[u8]>,
-) -> ([u8; BLOCK_SIZE], [u8; BLOCK_SIZE]) {
-    #[rustfmt::skip]
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-    let mut h_0 = preimage(
-        mode,
-        m_cost,
-        t_cost,
-        e_cost,
-        n_cost,
-        context,
-        secret
-    );
+) {
+    let mut h_0 = preimage(mode, params, context, secret);
 
-    let b0 = init(&h_0, 0);
-    let b1 = init(&h_0, 1);
+    init(&mut dst[0], &h_0, 0);
+    init(&mut dst[1], &h_0, 1);
 
     #[cfg(feature = "zeroize")]
     h_0.zeroize();
-
-    (b0, b1)
 }
 
 /// Hash preimage of the parameters and secret. Delivers a consistent 64 byte
@@ -53,22 +65,18 @@ pub fn initial_blocks(
 /// https://www.rfc-editor.org/info/rfc9106/#section-3.2
 fn preimage(
     mode: Mode,
-    m_cost: u32,
-    t_cost: u32,
-    e_cost: u32,
-    n_cost: u32,
+    params: Params,
     context: &str,
     secret: Option<&[u8]>,
 ) -> [u8; 64] {
     let mut hasher = Hasher::new();
     hasher.update(&[mode as u8]);
-    hasher.update(&m_cost.to_le_bytes());
-    hasher.update(&t_cost.to_le_bytes());
-    hasher.update(&e_cost.to_le_bytes());
-    hasher.update(&n_cost.to_le_bytes());
+    hasher.update(&params.m_cost().to_le_bytes());
+    hasher.update(&params.t_cost().to_le_bytes());
+    hasher.update(&params.e_cost().to_le_bytes());
+    hasher.update(&params.n_cost().to_le_bytes());
 
     let context_bytes = context.as_bytes();
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
     let mut context_len = (context_bytes.len() as u32).to_le_bytes();
     hasher.update(&context_len);
     hasher.update(context_bytes);
@@ -77,7 +85,6 @@ fn preimage(
     context_len.zeroize();
 
     if let Some(secret) = secret {
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut secret_len = (secret.len() as u32).to_le_bytes();
         hasher.update(&secret_len);
         hasher.update(secret);
@@ -99,29 +106,28 @@ fn preimage(
     out
 }
 
-/// Wrapper for the BLAKE3 XOF, producing one [BLOCK_SIZE]-sized output for
-/// initial block computations.
+/// Wrapper for the BLAKE3 XOF, producing one [Block] of output.
 ///
 /// Replaces RFC 9106's Function H' for Tag and Initial Block Computations.
-fn init(preimage: &[u8; 64], index: u32) -> [u8; BLOCK_SIZE] {
-    #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
+fn init(dst: &mut Block, preimage: &[u8; 64], index: u32) {
     let mut input = [preimage.as_slice(), &index.to_le_bytes()].concat();
 
     let mut hasher = Hasher::new();
     hasher.update(&input);
 
-    let mut out = [0u8; BLOCK_SIZE];
+    let mut buf = [0u8; Block::SIZE];
     let mut reader = hasher.finalize_xof();
-    reader.fill(&mut out);
+    reader.fill(&mut buf);
+
+    dst.copy_from_bytes(&buf);
 
     #[cfg(feature = "zeroize")]
     {
         input.zeroize();
         hasher.zeroize();
         reader.zeroize();
+        buf.zeroize();
     }
-
-    out
 }
 
 #[cfg(test)]
@@ -130,6 +136,8 @@ mod tests {
 
     const CONTEXT: &str = "TRAVERSEV_TEST";
     const SECRET: &[u8] = b"This is a secret.";
+
+    const BLOCK_SIZE: usize = Block::SIZE;
 
     /// BLAKE3 XOF over flat bytes
     fn xof<const N: usize>(bytes: &[u8]) -> [u8; N] {
@@ -151,28 +159,22 @@ mod tests {
 
     #[test]
     fn preimage_without_secret() {
+        let params = Params::default();
         let expected = xof::<64>(&layout(Mode::Trustless));
 
-        let h_0 = preimage(Mode::Trustless, 19 * 1024, 3, 8, 20, CONTEXT, None);
+        let h_0 = preimage(Mode::Trustless, params, CONTEXT, None);
         assert_eq!(h_0, expected);
     }
 
     #[test]
     fn preimage_with_secret() {
+        let params = Params::default();
         let mut bytes = layout(Mode::Permissioned);
         bytes.extend((SECRET.len() as u32).to_le_bytes());
         bytes.extend(SECRET);
         let expected = xof::<64>(&bytes);
 
-        let h_0 = preimage(
-            Mode::Permissioned,
-            19 * 1024,
-            3,
-            8,
-            20,
-            CONTEXT,
-            Some(SECRET),
-        );
+        let h_0 = preimage(Mode::Permissioned, params, CONTEXT, Some(SECRET));
         assert_eq!(h_0, expected);
     }
 
@@ -182,24 +184,25 @@ mod tests {
         let mut bytes = h_0.to_vec();
         bytes.extend(0u32.to_le_bytes());
 
-        assert_eq!(init(&h_0, 0), xof::<BLOCK_SIZE>(&bytes));
+        let mut expected = Block::new();
+        expected.copy_from_bytes(&xof::<BLOCK_SIZE>(&bytes));
+
+        let mut block = Block::new();
+        init(&mut block, &h_0, 0);
+        assert_eq!(block, expected);
     }
 
     #[test]
     fn initial_blocks_produces_two_blocks() {
-        let h_0 = preimage(Mode::Trustless, 19 * 1024, 3, 8, 20, CONTEXT, None);
-        #[rustfmt::skip]
-        let (b0, b1) = initial_blocks(
-            Mode::Trustless,
-            19 * 1024,
-            3,
-            8,
-            20,
-            CONTEXT,
-            None
-        );
+        let params = Params::default();
+        let h_0 = preimage(Mode::Trustless, params, CONTEXT, None);
+        let mut dst = [Block::new(), Block::new()];
+        initial_blocks(&mut dst, Mode::Trustless, params, CONTEXT, None);
 
-        assert_eq!(b0, init(&h_0, 0));
-        assert_eq!(b1, init(&h_0, 1));
+        let mut expected = Block::new();
+        init(&mut expected, &h_0, 0);
+        assert_eq!(dst[0], expected);
+        init(&mut expected, &h_0, 1);
+        assert_eq!(dst[1], expected);
     }
 }

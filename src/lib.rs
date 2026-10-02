@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
 #![doc = include_str!("../README.md")]
 //! ## Example
 //! ```
@@ -12,7 +13,7 @@
 //!
 //!     // Mine for a trustless proof over some input
 //!     let input = b"65 Doesn't Understand You";
-//!     let proof = miner.mine(input);
+//!     let proof: u128 = miner.mine(input, 0u128, 1);
 //!
 //!     // Any trustless instance with the same configuration can verify
 //!     let verifier = TraverseV::new_trustless(context, params);
@@ -23,7 +24,7 @@
 //!     let miner = TraverseV::new_permissioned(secret, context, params);
 //!
 //!     // A trustless instance cannot verify a permissioned proof
-//!     let proof = miner.mine(input);
+//!     let proof: u128 = miner.mine(input, 0u128, 1);
 //!     assert!(!verifier.verify(input, proof));
 //! }
 //! ```
@@ -31,74 +32,24 @@
 //! ## Features
 //!
 //! The `zeroize` feature (disabled by default) implements `ZeroizeOnDrop` for
-//! TraverseV, and zeroises intermediate values.
-mod common;
+//! TraverseV, and zeroises intermediate values on a best-effort basis.
+mod block;
 mod errors;
 mod memory;
-mod nonce;
+mod mix;
 mod params;
-mod traverse;
 
 use blake3::Hasher;
 use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-pub use crate::common::{BLOCK_SIZE, Mode};
+pub use crate::block::Block;
 pub use crate::errors::TraverseVErr;
-use crate::memory::{fill, initial_blocks};
-use crate::nonce::Nonce;
+pub use crate::memory::Mode;
+use crate::memory::build_buffer;
+use crate::mix::iter_mix;
 pub use crate::params::Params;
-use crate::traverse::dependency_chain;
-
-macro_rules! fill_memory {
-    ($mode: expr, $secret:expr, $context:expr, $params:expr) => {{
-        let q = $params.m_cost() as usize;
-        let t = $params.t_cost() as usize;
-
-        let mut v = vec![0u8; q * BLOCK_SIZE];
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let (mut b0, mut b1) = initial_blocks(
-            $mode,
-            $params.m_cost(),
-            $params.t_cost(),
-            $params.e_cost(),
-            $params.n_cost(),
-            $context,
-            $secret,
-        );
-        v[0..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-
-        #[cfg(feature = "zeroize")]
-        {
-            b0.zeroize();
-            b1.zeroize();
-        }
-
-        fill(&mut v, q, t);
-
-        v
-    }};
-}
-
-macro_rules! context_tag {
-    ($context:expr) => {{
-        let mut hasher = Hasher::new();
-        hasher.update($context.as_bytes());
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut hash = hasher.finalize();
-        let tag: [u8; 32] = hash.into();
-
-        #[cfg(feature = "zeroize")]
-        {
-            hasher.zeroize();
-            hash.zeroize();
-        }
-
-        tag
-    }};
-}
 
 /// TraverseV proof-of-work instance.
 ///
@@ -114,7 +65,7 @@ macro_rules! context_tag {
 #[cfg_attr(test, derive(Clone))]
 pub struct TraverseV {
     mode: Mode,
-    buffer: Vec<u8>,
+    buffer: Vec<Block>,
     tag: [u8; 32],
     key: Option<[u8; 32]>,
     params: Params,
@@ -131,9 +82,8 @@ impl TraverseV {
     /// parameters.
     pub fn new_trustless(context: impl Into<String>, params: Params) -> Self {
         let context = context.into();
-        let v = fill_memory!(Mode::Trustless, None, &context, params);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut tag = context_tag!(context);
+        let v = build_buffer(Mode::Trustless, None, &context, params);
+        let mut tag = context_tag(&context);
 
         let this = Self {
             mode: Mode::Trustless,
@@ -164,15 +114,12 @@ impl TraverseV {
     ) -> Self {
         let context = context.into();
         let v =
-            fill_memory!(Mode::Permissioned, Some(secret), &context, params);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut tag = context_tag!(context);
+            build_buffer(Mode::Permissioned, Some(secret), &context, params);
+        let mut tag = context_tag(&context);
 
         let mut hasher = Hasher::new_derive_key(&context);
         hasher.update(secret);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut key: [u8; 32] = hash.into();
 
         let this = Self {
@@ -197,19 +144,22 @@ impl TraverseV {
     /// Mine for a proof satisfying this instance's configured difficulty.
     ///
     /// Iteratively searches for candidates until one satisfies the difficulty.
-    /// Runtime is unbounded on high difficulties.
+    /// Runtime is unbounded on high difficulties. As the counter can overflow,
+    /// the type must be wide enough to reach a satisfying proof, otherwise the
+    /// counter wraps around causing an infinite loop.
     ///
     /// A [trustless](Self::new_trustless) instance mines for a trustless
     /// proof, and a [permissioned](Self::new_permissioned) instance mines for
     /// a permissioned proof.
-    pub fn mine(&self, input: &[u8]) -> u128 {
-        let mut nonce = Nonce::new();
-
+    pub fn mine<T, N, I>(&self, input: &[u8], mut counter: T, increment: I) -> N
+    where
+        T: core::ops::AddAssign<I> + Into<N> + Copy,
+        N: num_traits::ToBytes + Copy,
+        I: Copy,
+    {
         let mut hasher = Hasher::new();
         hasher.update(input);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut prefix: [u8; 32] = hash.into();
 
         #[cfg(feature = "zeroize")]
@@ -219,9 +169,8 @@ impl TraverseV {
         }
 
         let proof = loop {
-            let v = u128::from(nonce);
+            let v: N = counter.into();
 
-            #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
             let mut candidate = self.evaluate(&prefix, v);
             let satisfied = self.check_n(&candidate);
 
@@ -233,7 +182,7 @@ impl TraverseV {
                 break v;
             }
 
-            nonce += 1
+            counter += increment
         };
 
         #[cfg(feature = "zeroize")]
@@ -248,17 +197,18 @@ impl TraverseV {
     /// to match the one the proof was mined with.
     ///
     /// A [trustless](Self::new_trustless) instance can only verify trustless
-    /// proofs, and a and a [permissioned](Self::new_permissioned) instance can
-    /// only verify permissioned proofs.
-    pub fn verify(&self, input: &[u8], proof: u128) -> bool {
+    /// proofs, and a [permissioned](Self::new_permissioned) instance can only
+    /// verify permissioned proofs.
+    pub fn verify<N: num_traits::ToBytes + Copy>(
+        &self,
+        input: &[u8],
+        proof: N,
+    ) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(input);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut hash = hasher.finalize();
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut prefix: [u8; 32] = hash.into();
 
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
         let mut candidate = self.evaluate(&prefix, proof);
         let satisfied = self.check_n(&candidate);
 
@@ -278,32 +228,40 @@ impl TraverseV {
         self.mode
     }
 
-    fn evaluate(&self, prefix: &[u8; 32], v: u128) -> [u8; 32] {
+    fn evaluate<N: num_traits::ToBytes + Copy>(
+        &self,
+        prefix: &[u8; 32],
+        v: N,
+    ) -> [u8; 32] {
         let mut hasher = if let Some(key) = &self.key {
             Hasher::new_keyed(key)
         } else {
             Hasher::new()
         };
         hasher.update(prefix);
-        hasher.update(&v.to_le_bytes());
+        hasher.update(v.to_le_bytes().as_ref());
         hasher.update(&self.tag);
 
-        let mut x = [0u8; BLOCK_SIZE];
+        let mut bytes = [0u8; Block::SIZE];
         let mut reader = hasher.finalize_xof();
-        reader.fill(&mut x);
+        reader.fill(&mut bytes);
+        let mut x = Block::new();
+        x.copy_from_bytes(&bytes);
 
-        let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
-        x = dependency_chain(x, &self.buffer, q, k);
-        #[cfg_attr(not(feature = "zeroize"), allow(unused_mut))]
-        let mut hash = blake3::hash(&x);
+        iter_mix(&mut x, &self.buffer, k);
+        let mut x_bytes = [0u8; Block::SIZE];
+        x.copy_to_bytes(&mut x_bytes);
+        let mut hash = blake3::hash(&x_bytes);
         let candidate: [u8; 32] = hash.into();
 
         #[cfg(feature = "zeroize")]
         {
             hasher.zeroize();
             reader.zeroize();
+            bytes.zeroize();
             x.zeroize();
+            x_bytes.zeroize();
             hash.zeroize();
         }
 
@@ -312,27 +270,59 @@ impl TraverseV {
 
     fn check_n(&self, candidate: &[u8; 32]) -> Choice {
         let n = self.params.n_cost() as u8;
-        let bytes = n / 8;
+        let bytes = (n / 8) as usize;
         let bits = n % 8;
 
         // Verify first N bytes are zero, following N bits are zero
         let mut satisfied = Choice::from(1u8);
-        for i in 0..bytes {
-            satisfied &= candidate[i as usize].ct_eq(&0u8);
+        for byte in &candidate[..bytes] {
+            satisfied &= byte.ct_eq(&0u8);
         }
         if bits > 0 {
             let mask = (0xFF << (8 - bits)) as u8;
-            satisfied &= (candidate[bytes as usize] & mask).ct_eq(&0u8);
+            satisfied &= (candidate[bytes] & mask).ct_eq(&0u8);
         }
 
         satisfied
     }
 }
 
+fn context_tag(context: &str) -> [u8; 32] {
+    let mut hasher = Hasher::new();
+    hasher.update(context.as_bytes());
+    let mut hash = hasher.finalize();
+    let tag: [u8; 32] = hash.into();
+
+    #[cfg(feature = "zeroize")]
+    {
+        hasher.zeroize();
+        hash.zeroize();
+    }
+
+    tag
+}
+
+impl Default for TraverseV {
+    fn default() -> Self {
+        let context = "";
+        let params = Params::default();
+
+        TraverseV::new_trustless(context, params)
+    }
+}
+
+impl core::fmt::Debug for TraverseV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TraverseV")
+            .field("mode", &self.mode)
+            .field("params", &self.params)
+            .finish_non_exhaustive()
+    }
+}
+
 #[cfg(feature = "zeroize")]
 impl Drop for TraverseV {
     fn drop(&mut self) {
-        self.buffer.zeroize();
         self.tag.zeroize();
         self.key.zeroize();
     }
@@ -357,66 +347,12 @@ mod tests {
         Params::new(8, 2, 2, 12).expect("test parameters are valid")
     }
 
-    /// Memory buffer constructed manually from `initial_blocks` and `fill`.
-    fn expected_buffer(mode: Mode, secret: Option<&[u8]>) -> Vec<u8> {
-        let q = 8_usize;
-        let t = 2_usize;
-
-        #[rustfmt::skip]
-        let (b0, b1) = initial_blocks(
-            mode,
-            q as u32,
-            t as u32,
-            2,
-            12,
-            CONTEXT,
-            secret
-        );
-
-        let mut v = vec![0u8; q * BLOCK_SIZE];
-        v[..BLOCK_SIZE].copy_from_slice(&b0);
-        v[BLOCK_SIZE..2 * BLOCK_SIZE].copy_from_slice(&b1);
-        fill(&mut v, q, 2);
-
-        v
-    }
-
-    #[test]
-    fn new_trustless_builds_instance() {
-        let params = params();
-        let tv = TraverseV::new_trustless(CONTEXT, params);
-
-        let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer = expected_buffer(Mode::Trustless, None);
-
-        assert_eq!(tv.mode() as u8, Mode::Trustless as u8);
-        assert!(tv.key.is_none());
-        assert_eq!(tv.tag, *tag.as_bytes());
-        assert_eq!(tv.params, params);
-        assert_eq!(tv.buffer, buffer);
-    }
-
-    #[test]
-    fn new_permissioned_builds_instance() {
-        let params = params();
-        let tv = TraverseV::new_permissioned(SECRET, CONTEXT, params);
-
-        let tag = blake3::hash(CONTEXT.as_bytes());
-        let buffer = expected_buffer(Mode::Permissioned, Some(SECRET));
-
-        assert_eq!(tv.mode() as u8, Mode::Permissioned as u8);
-        assert_eq!(tv.key, Some(blake3::derive_key(CONTEXT, SECRET)));
-        assert_eq!(tv.tag, *tag.as_bytes());
-        assert_eq!(tv.params, params);
-        assert_eq!(tv.buffer, buffer);
-    }
-
     #[test]
     fn trustless_proof_verifies() {
         let miner = TraverseV::new_trustless(CONTEXT, params());
         let verifier = miner.clone();
 
-        let proof = miner.mine(INPUT);
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(verifier.verify(INPUT, proof));
     }
 
@@ -425,7 +361,7 @@ mod tests {
         let miner = TraverseV::new_permissioned(SECRET, CONTEXT, params());
         let verifier = miner.clone();
 
-        let proof = miner.mine(INPUT);
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(verifier.verify(INPUT, proof));
     }
 
@@ -435,7 +371,10 @@ mod tests {
         let miner = TraverseV::new_permissioned(SECRET, CONTEXT, params());
         let verifier = TraverseV::new_trustless(CONTEXT, params());
 
-        let proof = miner.mine(INPUT);
+        assert_eq!(miner.mode(), Mode::Permissioned);
+        assert_eq!(verifier.mode(), Mode::Trustless);
+
+        let proof: u128 = miner.mine(INPUT, 0u128, 1);
         assert!(!verifier.verify(INPUT, proof));
     }
 
@@ -446,5 +385,22 @@ mod tests {
 
         let verifier = TraverseV::new_trustless(CONTEXT, params);
         assert!(!verifier.verify(INPUT, 0u128));
+    }
+
+    #[test]
+    fn debug_omits_secret_state() {
+        let params = params();
+        let tv = TraverseV::new_permissioned(SECRET, CONTEXT, params);
+
+        let output = format!("{tv:?}");
+
+        assert!(output.contains("TraverseV"));
+        assert!(output.contains(&format!("{:?}", tv.mode())));
+        assert!(output.contains(&format!("{params:?}")));
+
+        // No sensitive fields should appear
+        for field in ["buffer", "tag", "key"] {
+            assert!(!output.contains(field));
+        }
     }
 }
