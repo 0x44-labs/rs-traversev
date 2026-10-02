@@ -11,8 +11,8 @@ use crate::params::Params;
 /// Allocate the memory buffer V of `m_cost` blocks and fill it.
 ///
 /// The starting blocks B0 and B1 are derived from the mode, parameters,
-/// context, and optional secret. The starting blocks placed at the start of V,
-/// and the remaining blocks are computed over `t_cost` passes by [fill].
+/// context, and optional secret. The starting blocks are placed at the start
+/// of V, and the remaining blocks are computed over `t_cost` passes by [fill].
 pub fn build_buffer(
     mode: Mode,
     secret: Option<&[u8]>,

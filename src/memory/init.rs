@@ -2,7 +2,7 @@ use blake3::Hasher;
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::{BLOCK_SIZE, Block, WORDS};
+use crate::block::Block;
 use crate::params::Params;
 
 /// Indicates whether a TraverseV instance produces trustless or permissioned
@@ -25,9 +25,9 @@ pub enum Mode {
 
 // Compile-time invariants
 const _: () = {
-    assert!(BLOCK_SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
-    assert!(WORDS % 16 == 0); // rows of 16 words
-    assert!(WORDS / 16 == 8); // eight rows / column pairs
+    assert!(Block::SIZE % 64 == 0); // 16 sub-blocks of 64 bytes
+    assert!(Block::WORDS % 16 == 0); // rows of 16 words
+    assert!(Block::WORDS / 16 == 8); // eight rows / column pairs
 };
 
 /// Compute the starting blocks B0 and B1. Similar to RFC 9106's Lane Starting
@@ -115,7 +115,7 @@ fn init(dst: &mut Block, preimage: &[u8; 64], index: u32) {
     let mut hasher = Hasher::new();
     hasher.update(&input);
 
-    let mut buf = [0u8; BLOCK_SIZE];
+    let mut buf = [0u8; Block::SIZE];
     let mut reader = hasher.finalize_xof();
     reader.fill(&mut buf);
 
@@ -137,7 +137,9 @@ mod tests {
     const CONTEXT: &str = "TRAVERSEV_TEST";
     const SECRET: &[u8] = b"This is a secret.";
 
-    /// BLAKE3 XOF over flat bytes/
+    const BLOCK_SIZE: usize = Block::SIZE;
+
+    /// BLAKE3 XOF over flat bytes
     fn xof<const N: usize>(bytes: &[u8]) -> [u8; N] {
         let mut out = [0u8; N];
         Hasher::new().update(bytes).finalize_xof().fill(&mut out);

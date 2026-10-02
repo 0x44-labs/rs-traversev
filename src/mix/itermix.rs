@@ -1,7 +1,7 @@
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::{Block, WORDS};
+use crate::block::Block;
 use crate::mix::blockmix::block_mix;
 
 /// The scryptROMix algorithm's second loop, computed in place on `x`. The
@@ -30,12 +30,12 @@ pub fn iter_mix(x: &mut Block, v: &[Block], q: usize, k: usize) {
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-5
 fn integerify(x: &Block) -> u64 {
-    x[WORDS - 1]
+    x[Block::WORDS - 1]
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::block::BLOCK_SIZE;
+    use crate::block::Block;
 
     use super::*;
 
@@ -44,7 +44,7 @@ mod tests {
         (0..q)
             .map(|b| {
                 let mut block = Block::new();
-                block.copy_from_bytes(&[b as u8 + 1; BLOCK_SIZE]);
+                block.copy_from_bytes(&[b as u8 + 1; Block::SIZE]);
                 block
             })
             .collect()
@@ -61,9 +61,9 @@ mod tests {
         // A mask would give 2, a big-endian read 5, and reading the first
         // 8 octets (11) would give 4.
         let v = memory(7);
-        let mut bytes = [0u8; BLOCK_SIZE];
+        let mut bytes = [0u8; Block::SIZE];
         bytes[..8].copy_from_slice(&11u64.to_le_bytes());
-        bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        bytes[Block::SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
         let mut x = Block::new();
         x.copy_from_bytes(&bytes);
 
@@ -78,8 +78,8 @@ mod tests {
     #[test]
     fn state_carries_between_rounds() {
         let v = memory(7);
-        let mut bytes = [0u8; BLOCK_SIZE];
-        bytes[BLOCK_SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
+        let mut bytes = [0u8; Block::SIZE];
+        bytes[Block::SIZE - 8..].copy_from_slice(&10u64.to_le_bytes());
         let mut x = Block::new();
         x.copy_from_bytes(&bytes);
 

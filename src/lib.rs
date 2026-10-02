@@ -44,7 +44,7 @@ use subtle::{Choice, ConstantTimeEq};
 #[cfg(feature = "zeroize")]
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::block::{BLOCK_SIZE, Block};
+use crate::block::Block;
 pub use crate::errors::TraverseVErr;
 pub use crate::memory::Mode;
 use crate::memory::build_buffer;
@@ -240,7 +240,7 @@ impl TraverseV {
         hasher.update(v.to_le_bytes().as_ref());
         hasher.update(&self.tag);
 
-        let mut bytes = [0u8; BLOCK_SIZE];
+        let mut bytes = [0u8; Block::SIZE];
         let mut reader = hasher.finalize_xof();
         reader.fill(&mut bytes);
         let mut x = Block::new();
@@ -249,7 +249,7 @@ impl TraverseV {
         let q = self.params.m_cost() as usize;
         let k = self.params.e_cost() as usize;
         iter_mix(&mut x, &self.buffer, q, k);
-        let mut x_bytes = [0u8; BLOCK_SIZE];
+        let mut x_bytes = [0u8; Block::SIZE];
         x.copy_to_bytes(&mut x_bytes);
         let mut hash = blake3::hash(&x_bytes);
         let candidate: [u8; 32] = hash.into();

@@ -3,7 +3,7 @@ use salsa20::cipher::{StreamCipherCore, consts::U4};
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
 
-use crate::block::{BLOCK_SIZE, Block};
+use crate::block::Block;
 
 /// The scryptBlockMix Algorithm, specialised for `r = 8`, `128 * r = 1024`.
 /// This operates directly on one [BLOCK_SIZE]-sized block with no resizing,
@@ -14,7 +14,7 @@ use crate::block::{BLOCK_SIZE, Block};
 ///
 /// https://www.rfc-editor.org/info/rfc7914/#section-4
 pub(crate) fn block_mix(dst: &mut Block, tmp: &mut Block) {
-    const SUB_BLOCKS: usize = BLOCK_SIZE / 64; // 2r = 16, r = 8
+    const SUB_BLOCKS: usize = Block::SIZE / 64; // 2r = 16, r = 8
     const SUB_WORDS: usize = 8;
 
     let mut x: [u64; SUB_WORDS] = dst[(SUB_BLOCKS - 1) * SUB_WORDS..]
@@ -112,7 +112,7 @@ mod tests {
         0x24, 0xad, 0x67, 0x3d, 0xc7, 0x61, 0x8f, 0x81,
     ];
 
-    fn put(block: &mut [u8; BLOCK_SIZE], index: usize, sub: &[u8; 64]) {
+    fn put(block: &mut [u8; Block::SIZE], index: usize, sub: &[u8; 64]) {
         block[index * 64..(index + 1) * 64].copy_from_slice(sub);
     }
 
@@ -122,14 +122,14 @@ mod tests {
         // Sub-blocks B[0] = 0, B[1] = O ^ I, B[2] = O, B[3..15] = 0 and
         // B[15] = I give the sequence Y = O, O, 0, ..., 0, O.
         let o_xor_i = core::array::from_fn(|k| OUTPUT[k] ^ INPUT[k]);
-        let mut b = [0u8; BLOCK_SIZE];
+        let mut b = [0u8; Block::SIZE];
         put(&mut b, 1, &o_xor_i);
         put(&mut b, 2, &OUTPUT);
         put(&mut b, 15, &INPUT);
 
         // Even-indexed Y come first, then odd-indexed Y, so Y[0], Y[1] and
         // Y[15] land in output sub-blocks 0, 8 and 15.
-        let mut e = [0u8; BLOCK_SIZE];
+        let mut e = [0u8; Block::SIZE];
         put(&mut e, 0, &OUTPUT);
         put(&mut e, 8, &OUTPUT);
         put(&mut e, 15, &OUTPUT);
